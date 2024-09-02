@@ -1,0 +1,7 @@
+[client]
+database = NAME
+host = HOST
+port = PORT
+user = USER
+password = PASSWORD
+default-character-set = utf8

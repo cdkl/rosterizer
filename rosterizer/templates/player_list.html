@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Player List</title>
+</head>
+<body>
+    <h1>Player List</h1>
+    <a href="{% url 'index' %}">Back to Index</a>
+    <table>
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Home Phone</th>
+                <th>Work Phone</th>
+                <th>Cell Phone</th>
+                <th>Email</th>
+                <th>Gender</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for player in players %}
+            <tr>
+                <td>{{ player.first_name }}</td>
+                <td>{{ player.last_name }}</td>
+                <td>{{ player.home_phone }}</td>
+                <td>{{ player.work_phone }}</td>
+                <td>{{ player.cell_phone }}</td>
+                <td>{{ player.email }}</td>
+                <td>{{ player.gender }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

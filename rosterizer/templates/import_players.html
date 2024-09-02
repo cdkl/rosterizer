@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Import Players</title>
+</head>
+<body>
+    <h1>Import Players for Session: {{ session.year }} - {{ session.session_number }}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="player_file">Select file:</label>
+        <input type="file" name="player_file" id="player_file" required>
+        <button type="submit">Upload</button>
+    </form>
+    <a href="{% url 'session_list' %}">Back to Session List</a>
+</body>
+</html>
