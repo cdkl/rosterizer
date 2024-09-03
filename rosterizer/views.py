@@ -1,8 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
-from .forms import SessionForm
-from .models import Player, Session
+from django.core.files.storage import FileSystemStorage
+from django.contrib import messages
 from bs4 import BeautifulSoup
+from .forms import SessionForm, PlayerImportForm
+from .models import Player, Session
+from .management.commands.import_players import ImportPlayersCommand
 
 # Create your views here.
 
@@ -31,33 +34,26 @@ def delete_session(request, session_id):
     return render(request, 'delete_session.html', {'session': session})
 
 def import_players(request, session_id):
-    session = get_object_or_404(Session, id=session_id)
-    if request.method == 'POST' and request.FILES.get('player_file'):
-        player_file = request.FILES['player_file']
-        soup = BeautifulSoup(player_file, 'lxml')
+    session = Session.objects.get(id=session_id)
 
-        table = soup.find('table', class_='adminlist')
-        rows = table.find('tbody').find_all('tr')
+    if request.method == 'POST':
+        form = PlayerImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            html_file = request.FILES['html_file']
+            fs = FileSystemStorage()
+            filename = fs.save(html_file.name, html_file)
+            uploaded_file_path = fs.path(filename)
 
-        for row in rows:
-            cols = row.find_all('td')
-            name = cols[1].text.strip()
-            last_name, first_name = map(str.strip, name.split(','))
+            # Invoke the import logic
+            import_command = ImportPlayersCommand()
+            import_command.handle(html_file=uploaded_file_path, session_id=session_id)
 
-            player_data = {
-                'first_name': first_name,
-                'last_name': last_name,
-                'home_phone': cols[2].text.strip() or None,
-                'work_phone': cols[3].text.strip() or None,
-                'cell_phone': cols[4].text.strip() or None,
-                'email': cols[5].text.strip() or None,
-                'gender': cols[6].text.strip()[0],  # Assuming gender is a single character (M/F)
-            }
+            messages.success(request, 'Players imported successfully')
+            return redirect('session_list')  # Adjust the redirect as needed
+    else:
+        form = PlayerImportForm()
 
-            Player.objects.create(**player_data)
-
-        return redirect('session_list')
-    return render(request, 'import_players.html', {'session': session})
+    return render(request, 'import_players.html', {'form': form, 'session': session})
 
 def player_list(request):
     players = Player.objects.all()

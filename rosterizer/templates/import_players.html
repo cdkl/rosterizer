@@ -4,12 +4,11 @@
     <title>Import Players</title>
 </head>
 <body>
-    <h1>Import Players for Session: {{ session.year }} - {{ session.session_number }}</h1>
+    <h2>Import Players for {{ session }}</h2>
     <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <label for="player_file">Select file:</label>
-        <input type="file" name="player_file" id="player_file" required>
-        <button type="submit">Upload</button>
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Import</button>
     </form>
     <a href="{% url 'session_list' %}">Back to Session List</a>
 </body>

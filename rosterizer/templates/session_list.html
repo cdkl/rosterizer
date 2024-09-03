@@ -5,15 +5,26 @@
 </head>
 <body>
     <h1>Session List</h1>
-    <a href="{% url 'create_session' %}">Create Session</a> <!-- Added Create Session link -->
-    <ul>
-        {% for session in sessions %}
-            <li>
-                Year: {{ session.year }}, Session Number: {{ session.session_number }}
+    <table>
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Session Number</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for session in sessions %}
+            <tr>
+              <td>{{ session.year }}</td>
+              <td>{{ session.session_number }}</td>
+              <td>
+                <a href="{% url 'import_players' session.id %}">Import players</a>
                 <a href="{% url 'delete_session' session.id %}">Delete</a>
-                <a href="{% url 'import_players' session.id %}">Import Players</a>
-            </li>
-        {% endfor %}
-    </ul>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
 </body>
 </html>
