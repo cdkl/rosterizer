@@ -48,7 +48,7 @@ def import_players(request, session_id):
             import_command = ImportPlayersCommand()
             import_command.handle(html_file=uploaded_file_path, session_id=session_id)
 
-            messages.success(request, 'Players imported successfully')
+            # messages.success(request, 'Players imported successfully')
             return redirect('session_list')  # Adjust the redirect as needed
     else:
         form = PlayerImportForm()
@@ -58,3 +58,11 @@ def import_players(request, session_id):
 def player_list(request):
     players = Player.objects.all()
     return render(request, 'player_list.html', {'players': players})
+
+def clear_player_list(request):
+    if request.method == 'POST':
+        Player.objects.all().delete()
+        # messages.success(request, 'All players have been cleared.')
+        return redirect('player_list')  # Adjust the redirect as needed
+
+    return render(request, 'clear_player_list.html')

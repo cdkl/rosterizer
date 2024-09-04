@@ -6,6 +6,10 @@
 <body>
     <h1>Player List</h1>
     <a href="{% url 'index' %}">Back to Index</a>
+    <form method="post" action="{% url 'clear_player_list' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">Clear Player List</button>
+    </form>
     <table>
         <thead>
             <tr>
