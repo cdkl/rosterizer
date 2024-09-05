@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Import Roster</title>
+</head>
+<body>
+    <h1>Import Roster for {{ session }}</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Import</button>
+    </form>
+    <a href="{% url 'session_list' %}">Back to Session List</a>
+</body>
+</html>

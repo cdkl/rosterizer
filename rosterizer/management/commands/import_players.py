@@ -1,6 +1,7 @@
 import os
 from bs4 import BeautifulSoup
 from django.core.management.base import BaseCommand
+from rosterizer import utilities
 from rosterizer.models import Player, Session, PlayerSession
 
 class ImportPlayersCommand(BaseCommand):
@@ -45,7 +46,7 @@ class ImportPlayersCommand(BaseCommand):
 				preferred_position2 = columns[14].get_text(strip=True)
 				play_with = columns[15].get_text(strip=True)
 
-				first_name, last_name = member_name.split(', ')[1], member_name.split(', ')[0]
+				first_name, last_name = utilities.parse_name(member_name)
 
 				player, created = Player.objects.get_or_create(
 					first_name=first_name,

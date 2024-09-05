@@ -1,13 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
 from django.core.files.storage import FileSystemStorage
 from django.contrib import messages
-from bs4 import BeautifulSoup
-from .forms import SessionForm, PlayerImportForm
-from .models import Player, Session
-from .management.commands.import_players import ImportPlayersCommand
 
-# Create your views here.
+from rosterizer.management.commands.import_players import ImportPlayersCommand
+from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
+from .forms import SessionForm, PlayerImportForm, RosterImportForm
+from .models import Player, PlayerSession, Session
 
 def create_session(request):
     if request.method == 'POST':
@@ -66,3 +64,30 @@ def clear_player_list(request):
         return redirect('player_list')  # Adjust the redirect as needed
 
     return render(request, 'clear_player_list.html')
+
+def import_roster(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+
+    if request.method == 'POST':
+        form = RosterImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            roster_file = request.FILES['roster_file']
+            fs = FileSystemStorage()
+            filename = fs.save(roster_file.name, roster_file)
+            uploaded_file_path = fs.path(filename)
+
+            import_command = ImportRosterCsvCommand()
+            import_command.handle(roster_file=uploaded_file_path, session_id=session_id)
+
+            # messages.success(request, 'Roster imported successfully')
+            return redirect('session_list')  # Adjust the redirect as needed
+    else:
+        form = RosterImportForm()
+
+    return render(request, 'import_roster.html', {'form': form, 'session': session})
+
+def players_in_session(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+    player_sessions = PlayerSession.objects.filter(session=session).select_related('player')
+    return render(request, 'players_in_session.html', {'session': session, 'player_sessions': player_sessions})
+

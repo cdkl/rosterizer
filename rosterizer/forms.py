@@ -8,3 +8,6 @@ class SessionForm(forms.ModelForm):
         
 class PlayerImportForm(forms.Form):
     html_file = forms.FileField(label='Select an HTML file')
+
+class RosterImportForm(forms.Form):
+    roster_file = forms.FileField(label='Select a roster file')

@@ -20,7 +20,9 @@
               <td>{{ session.year }}</td>
               <td>{{ session.session_number }}</td>
               <td>
+                <a href="{% url 'players_in_session' session.id %}">View Players</a>
                 <a href="{% url 'import_players' session.id %}">Import players</a>
+                <a href="{% url 'import_roster' session.id %}">Import roster</a>
                 <a href="{% url 'delete_session' session.id %}">Delete</a>
               </td>
             </tr>

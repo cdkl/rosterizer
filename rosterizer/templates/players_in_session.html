@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Players in Session {{ session.id }}</title>
+</head>
+<body>
+    <h1>Players in Session {{ session.id }}</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Home Phone</th>
+                <th>Work Phone</th>
+                <th>Cell Phone</th>
+                <th>Email</th>
+                <th>Gender</th>
+                <th>Years Curled</th>
+                <th>Preferred Position 1</th>
+                <th>Preferred Position 2</th>
+                <th>Play With</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for player_session in player_sessions %}
+                <tr>
+                    <td>{{ player_session.player.first_name }}</td>
+                    <td>{{ player_session.player.last_name }}</td>
+                    <td>{{ player_session.player.home_phone }}</td>
+                    <td>{{ player_session.player.work_phone }}</td>
+                    <td>{{ player_session.player.cell_phone }}</td>
+                    <td>{{ player_session.player.email }}</td>
+                    <td>{{ player_session.player.gender }}</td>
+                    <td>{{ player_session.years_curled }}</td>
+                    <td>{{ player_session.preferred_position1 }}</td>
+                    <td>{{ player_session.preferred_position2 }}</td>
+                    <td>{{ player_session.play_with }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <a href="{% url 'session_list' %}">Back to Session List</a>
+</body>
+</html>
