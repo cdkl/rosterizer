@@ -11,5 +11,7 @@ urlpatterns = [
     path('clear_player_list/', views.clear_player_list, name='clear_player_list'),
     path('import_roster/<int:session_id>/', views.import_roster, name='import_roster'),
     path('session/<int:session_id>/players/', views.players_in_session, name='players_in_session'),
+    path('sessions/<int:session_id>/generate_teams_form/', views.generate_teams_form, name='generate_teams_form'),
+    path('sessions/<int:session_id>/generate_teams/', views.generate_teams, name='generate_teams'),
 
 ]

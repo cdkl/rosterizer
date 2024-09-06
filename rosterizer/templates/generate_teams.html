@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Teams</title>
+</head>
+<body>
+    <h1>Generate Teams</h1>
+    <a href="{% url 'session_list' %}">Back to Session List</a>
+    <form action="{% url 'generate_teams' session.id %}" method="post">
+        {% csrf_token %}
+        <label>
+            <input type="checkbox" name="test_option" value="1"> Test Option
+        </label>
+        <button type="submit">Generate Teams</button>
+    </form>
+</body>
+</html>

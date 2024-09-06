@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.files.storage import FileSystemStorage
 from django.contrib import messages
@@ -6,6 +7,7 @@ from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session
+from .team_generation import generate_teams_for_session
 
 def create_session(request):
     if request.method == 'POST':
@@ -91,3 +93,15 @@ def players_in_session(request, session_id):
     player_sessions = PlayerSession.objects.filter(session=session).select_related('player')
     return render(request, 'players_in_session.html', {'session': session, 'player_sessions': player_sessions})
 
+
+def generate_teams_form(request, session_id):
+    session = get_object_or_404(Session, pk=session_id)
+    return render(request, 'generate_teams.html', {'session': session})
+
+def generate_teams(request, session_id):
+    if request.method == 'POST':
+        test_option = request.POST.get('test_option', 'off')
+        result = generate_teams_for_session(session_id, test_option)  # Call the function
+        return HttpResponse(result)
+    else:
+        return redirect('session_list')
