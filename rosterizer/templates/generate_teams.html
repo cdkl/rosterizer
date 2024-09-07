@@ -9,7 +9,7 @@
     <form action="{% url 'generate_teams' session.id %}" method="post">
         {% csrf_token %}
         <label>
-            <input type="checkbox" name="test_option" value="1"> Test Option
+            <input type="checkbox" name="use_play_with" value="1"> Use "Play With" data
         </label>
         <button type="submit">Generate Teams</button>
     </form>

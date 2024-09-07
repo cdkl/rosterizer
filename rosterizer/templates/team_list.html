@@ -1,0 +1,42 @@
+<!-- templates/team_list.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teams for Session {{ session.year }} - {{ session.session_number }}</title>
+</head>
+<body>
+    <h1>Teams for Session {{ session.year }} - {{ session.session_number }}</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Team Number</th>
+                <th>Skip</th>
+                <th>Vice</th>
+                <th>Second</th>
+                <th>Lead</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for team in teams %}
+            <tr>
+                <td>{{ team.team_number }}</td>
+                <td>{{ team.skip.first_name }} {{ team.skip.last_name }}</td>
+                <td>{{ team.vice.first_name }} {{ team.vice.last_name }}</td>
+                <td>{{ team.second.first_name }} {{ team.second.last_name }}</td>
+                <td>{{ team.lead.first_name }} {{ team.lead.last_name }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <form method="post" action="{% url 'clear_teams' session.id %}">
+        {% csrf_token %}
+        <button type="submit">Clear Teams</button>
+    </form>
+    <form method="post" action="{% url 'generate_teams_form' session.id %}">
+        {% csrf_token %}
+        <button type="submit">Generate Teams</button>
+    </form>
+    <a href="{% url 'session_list' %}">Back to Session List</a>
+</body>
+</html>

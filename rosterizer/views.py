@@ -6,7 +6,7 @@ from django.contrib import messages
 from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
-from .models import Player, PlayerSession, Session
+from .models import Player, PlayerSession, Session, Team
 from .team_generation import generate_teams_for_session
 
 def create_session(request):
@@ -100,8 +100,20 @@ def generate_teams_form(request, session_id):
 
 def generate_teams(request, session_id):
     if request.method == 'POST':
-        test_option = request.POST.get('test_option', 'off')
-        result = generate_teams_for_session(session_id, test_option)  # Call the function
-        return HttpResponse(result)
+        use_play_with = request.POST.get('use_play_with', 'on')
+        result = generate_teams_for_session(session_id, use_play_with)  # Call the function
+        # messages.success(request, 'Teams have been generated successfully')
+        return redirect('team_list', session_id=session_id)
     else:
         return redirect('session_list')
+
+def team_list(request, session_id):
+    session = get_object_or_404(Session, pk=session_id)
+    teams = Team.objects.filter(session=session)
+    return render(request, 'team_list.html', {'session': session, 'teams': teams})
+
+def clear_teams(request, session_id):
+    session = get_object_or_404(Session, pk=session_id)
+    Team.objects.filter(session=session).delete()
+    # messages.success(request, 'Teams have been cleared successfully')
+    return redirect('team_list', session_id=session_id)

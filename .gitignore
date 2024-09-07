@@ -2,3 +2,5 @@ venv
 my.cnf
 **/__pycache__
 db.sqlite3
+TestImport*
+TestRoster*
