@@ -6,11 +6,17 @@
 <body>
     <h1>Generate Teams</h1>
     <a href="{% url 'session_list' %}">Back to Session List</a>
-    <form action="{% url 'generate_teams' session.id %}" method="post">
+    <form id="generate-teams-form" action="{% url 'generate_teams' session.id %}" method="post">
         {% csrf_token %}
         <label>
             <input type="checkbox" name="use_play_with" value="1"> Use "Play With" data
         </label>
+        <br>
+        <label>
+            Number of rosters to generate:
+            <input type="number" name="num_rosters" min="1" max="100" value="1">
+        </label>
+        <br>
         <button type="submit">Generate Teams</button>
     </form>
 </body>

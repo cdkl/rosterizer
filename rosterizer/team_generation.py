@@ -2,7 +2,19 @@
 
 import logging
 import random
+from django.core import serializers
 from .models import PlayerSession, Player, Team
+
+
+# Generate multiple candidate rosters and return them
+def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True):
+    rosters = []
+    player_sessions_query = PlayerSession.objects.filter(session_id=session_id)
+
+    for _ in range(num_rosters):
+        rosters.append(generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with))
+    serialized_object = serializers.serialize('json', rosters[0])
+    return rosters
 
 # Generate and save teams for a given session ID
 def generate_teams_for_session(session_id, use_play_with=True):
@@ -13,6 +25,10 @@ def generate_teams_for_session(session_id, use_play_with=True):
     teams = generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with)
 
     # Commit teams to the database
+    apply_team_roster(session_id, teams)
+    return f"Teams generated for session {session_id} with play with: {use_play_with}"
+
+def apply_team_roster(session_id, teams):
     team_number = 1
     for team in teams:
         # Create a new Team object
@@ -24,7 +40,6 @@ def generate_teams_for_session(session_id, use_play_with=True):
 
         # Save the team to the database
         new_team.save()
-    return f"Teams generated for session {session_id} with play with: {use_play_with}"
 
 # Generate team assignments - this function will return a list of teams, each with a skip, vice, second, and lead
 # Internal function
@@ -82,7 +97,6 @@ def generate_team_assignments(player_sessions, use_play_with=True):
     if len(player_sessions) > 0:
         logging.warning(f'Unable to assign all players to teams: {player_sessions}')
     
-    print(teams)
     return teams
 
 # Helper function to select a player for a position

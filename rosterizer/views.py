@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.files.storage import FileSystemStorage
 from django.contrib import messages
@@ -7,7 +7,7 @@ from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
-from .team_generation import generate_teams_for_session
+from .team_generation import generate_multiple_rosters, generate_teams_for_session
 
 def create_session(request):
     if request.method == 'POST':
@@ -93,7 +93,6 @@ def players_in_session(request, session_id):
     player_sessions = PlayerSession.objects.filter(session=session).select_related('player')
     return render(request, 'players_in_session.html', {'session': session, 'player_sessions': player_sessions})
 
-
 def generate_teams_form(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
     return render(request, 'generate_teams.html', {'session': session})
@@ -101,11 +100,55 @@ def generate_teams_form(request, session_id):
 def generate_teams(request, session_id):
     if request.method == 'POST':
         use_play_with = request.POST.get('use_play_with', 'on')
-        result = generate_teams_for_session(session_id, use_play_with)  # Call the function
-        # messages.success(request, 'Teams have been generated successfully')
+        num_rosters = int(request.POST.get('num_rosters', 1))
+        if num_rosters == 1:
+            result = generate_teams_for_session(session_id, use_play_with)  # Call the function
+            # messages.success(request, 'Teams have been generated successfully')
+            return redirect('team_list', session_id=session_id)
+        else:
+            rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with)
+            rosters_list = []
+            for roster in rosters:
+                rosters_list.append([team for team in roster])
+
+            request.session['generated_rosters'] = rosters_list
+            return redirect('roster_review', session_id=session_id)
+    else:
+        return redirect('session_list')
+
+def roster_review(request, session_id):
+    rosters = request.session.get('generated_rosters', [])
+    if not rosters:
+        return redirect('session_list')  # Handle the case where rosters are not found
+    return render(request, 'roster_review.html', {'session_id': session_id, 'rosters': rosters})
+
+def select_roster(request, session_id):
+    if request.method == 'POST':
+        selected_roster_index = int(request.POST.get('selected_roster'))
+
+        rosters = request.session.get('generated_rosters', [])
+        if not rosters:
+            return redirect('session_list')  # Handle the case where rosters are not found
+
+        selected_roster = rosters[selected_roster_index]
+        apply_team_roster(session_id, selected_roster)        
+
         return redirect('team_list', session_id=session_id)
     else:
         return redirect('session_list')
+
+def apply_team_roster(session_id, roster):
+    session = get_object_or_404(Session, pk=session_id)
+    teams = []
+    for team_data in roster:
+        teams.append({
+            'team_number': team_data['team_number'],
+            'skip': PlayerSession.objects.get(pk=team_data['skip']['id']),
+            'vice': PlayerSession.objects.get(pk=team_data['vice']['id']),
+            'second': PlayerSession.objects.get(pk=team_data['second']['id']),
+            'lead': PlayerSession.objects.get(pk=team_data['lead']['id'])
+        })
+    apply_team_roster(session, teams)
 
 def team_list(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
@@ -117,3 +160,11 @@ def clear_teams(request, session_id):
     Team.objects.filter(session=session).delete()
     # messages.success(request, 'Teams have been cleared successfully')
     return redirect('team_list', session_id=session_id)
+
+def player_session_detail(request, pk):
+    try:
+        player_session = PlayerSession.objects.get(pk=pk)
+        data = player_session.to_dict()
+        return JsonResponse(data)
+    except PlayerSession.DoesNotExist:
+        return JsonResponse({'error': 'PlayerSession not found'}, status=404)

@@ -1,7 +1,9 @@
+import json
 import pytest
 from .team_generation import generate_team_assignments, generate_teams_for_session, set_team_player
 from .team_generation import select_player_for_position
-from .models import Player, Session, PlayerSession, Team
+from .models import Player, PlayerSessionDecoder, PlayerSessionEncoder, Session, PlayerSession, Team
+from django.core import serializers
 
 @pytest.fixture
 def players():
@@ -42,6 +44,18 @@ def player_sessions_sparse(players, session):
     player_session7 = PlayerSession(pk=7, player=players[6], session=session, years_curled=35, preferred_position1='', preferred_position2='Second', play_with='Jane Smith')
     player_session8 = PlayerSession(pk=8, player=players[7], session=session, years_curled=40, preferred_position1='', preferred_position2='Lead', play_with='')
     return [player_session1, player_session2, player_session3, player_session4, player_session5, player_session6, player_session7, player_session8] 
+
+
+def test_roster_serialization(player_sessions_rich):
+    rosters = generate_team_assignments(player_sessions_rich)
+    rosters_json = json.dumps(rosters, cls=PlayerSessionEncoder)
+      #serializers.serialize('json', rosters)
+
+    new_rosters = json.loads(rosters_json, cls=PlayerSessionDecoder)
+    assert new_rosters == rosters
+
+
+
 
 def test_select_player_for_position(player_sessions_rich, player_sessions_sparse):
     assert select_player_for_position('Skip', player_sessions_rich) in {player_sessions_rich[0], player_sessions_rich[4]}

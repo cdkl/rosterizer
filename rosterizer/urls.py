@@ -15,5 +15,7 @@ urlpatterns = [
     path('session/<int:session_id>/players/', views.players_in_session, name='players_in_session'),
     path('sessions/<int:session_id>/generate_teams_form/', views.generate_teams_form, name='generate_teams_form'),
     path('sessions/<int:session_id>/generate_teams/', views.generate_teams, name='generate_teams'),
-
+    path('session/<int:session_id>/generate_multiple_rosters/', views.generate_multiple_rosters, name='generate_multiple_rosters'),
+    path('session/<int:session_id>/roster_review/', views.roster_review, name='roster_review'),
+    path('session/<int:session_id>/select_roster/', views.select_roster, name='select_roster'),
 ]
