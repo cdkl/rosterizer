@@ -14,7 +14,7 @@
                 <h2>Roster {{ forloop.counter }}</h2>
                 <ul>
                     {% for team in roster %}
-                        <li>Team {{ team.team_number }}: {{ team.skip.first_name }} {{ team.skip.last_name }}, {{ team.vice.first_name }} {{ team.vice.last_name }}, {{ team.second.first_name }} {{ team.second.last_name }}, {{ team.lead.first_name }} {{ team.lead.last_name }}</li>
+                        <li>Team {{ team.team_number }}: {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }}, {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }}, {{ team.Second.player.first_name }} {{ team.Second.player.last_name }}, {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }}</li>
                     {% endfor %}
                 </ul>
                 <label>

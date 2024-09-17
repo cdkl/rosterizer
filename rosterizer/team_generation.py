@@ -13,7 +13,7 @@ def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True):
 
     for _ in range(num_rosters):
         rosters.append(generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with))
-    serialized_object = serializers.serialize('json', rosters[0])
+
     return rosters
 
 # Generate and save teams for a given session ID
@@ -36,7 +36,12 @@ def apply_team_roster(session_id, teams):
         new_team.session_id = session_id
         new_team.team_number = team_number
         team_number += 1
-        new_team.set_players_from_player_sessions(team['Skip'], team['Vice'], team['Second'], team['Lead'])
+        skip = PlayerSession.objects.get(pk=team['Skip']) if team['Skip'] else None
+        vice = PlayerSession.objects.get(pk=team['Vice']) if team['Vice'] else None
+        second = PlayerSession.objects.get(pk=team['Second']) if team['Second'] else None
+        lead = PlayerSession.objects.get(pk=team['Lead']) if team['Lead'] else None
+
+        new_team.set_players_from_player_sessions(skip, vice, second, lead)
 
         # Save the team to the database
         new_team.save()
@@ -111,23 +116,38 @@ def select_player_for_position(position, player_sessions):
 
 # Helper function to assign play with players to an existing team
 def add_play_with_players_to_team(team, player_sessions):
-    for _, team_position_player_session in team.items():
+    for _, team_position_player_session_id in team.items():
+        team_position_player_session = PlayerSession.objects.get(pk=team_position_player_session_id) if team_position_player_session_id else None
         if team_position_player_session is not None:
             preferred_player = next((ps for ps in player_sessions if ps.player.get_full_name() == team_position_player_session.play_with), None)
             if preferred_player:
                 if preferred_player.preferred_position1 and team[preferred_player.preferred_position1] is None:
-                    team[preferred_player.preferred_position1] = preferred_player
-                    player_sessions.remove(preferred_player)
+                    set_team_player(team, preferred_player.preferred_position1, preferred_player, player_sessions)
                     logging.info(f"Added {team_position_player_session.player} partner {preferred_player.player} to team {team} at preferred position 1 {preferred_player.preferred_position1}")
                 elif preferred_player.preferred_position2 and team[preferred_player.preferred_position2] is None:
-                    team[preferred_player.preferred_position2] = preferred_player
-                    player_sessions.remove(preferred_player)
+                    set_team_player(team, preferred_player.preferred_position2, preferred_player, player_sessions)
                     logging.info(f"Added {team_position_player_session.player} partner {preferred_player.player} to team {team} at preferred position 2 {preferred_player.preferred_position2}")
                 else:
                     logging.warning(f"Unable to add {preferred_player.player} to team {team} at either preferred position")
 
 # utility function to set a player to a team position and remove the player from the list of player sessions                
 def set_team_player(team, position, player_session, player_sessions):
-    team[position] = player_session
+    team[position] = player_session.id
     player_sessions.remove(player_session)
     logging.info(f"Assigned skip {player_session.player} to team {team}")
+
+# utility function to hydrate the rosters with PlayerSession objects
+def hydrate_rosters(rosters):
+    hydrated_rosters = []
+    for roster in rosters:
+        hydrated_roster = []
+        for team in roster:
+            hydrated_team = {
+                'Skip': PlayerSession.objects.get(pk=team['Skip']) if team['Skip'] else None,
+                'Vice': PlayerSession.objects.get(pk=team['Vice']) if team['Vice'] else None,
+                'Second': PlayerSession.objects.get(pk=team['Second']) if team['Second'] else None,
+                'Lead': PlayerSession.objects.get(pk=team['Lead']) if team['Lead'] else None,
+            }
+            hydrated_roster.append(hydrated_team)
+        hydrated_rosters.append(hydrated_roster)
+    return hydrated_rosters

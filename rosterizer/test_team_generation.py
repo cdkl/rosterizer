@@ -1,6 +1,6 @@
 import json
 import pytest
-from .team_generation import generate_team_assignments, generate_teams_for_session, set_team_player
+from .team_generation import generate_multiple_rosters, generate_team_assignments, generate_teams_for_session, hydrate_rosters, set_team_player
 from .team_generation import select_player_for_position
 from .models import Player, PlayerSessionDecoder, PlayerSessionEncoder, Session, PlayerSession, Team
 from django.core import serializers
@@ -45,17 +45,18 @@ def player_sessions_sparse(players, session):
     player_session8 = PlayerSession(pk=8, player=players[7], session=session, years_curled=40, preferred_position1='', preferred_position2='Lead', play_with='')
     return [player_session1, player_session2, player_session3, player_session4, player_session5, player_session6, player_session7, player_session8] 
 
+@pytest.mark.django_db
+def test_roster_serialization(players, player_sessions_rich, session):
+    for p in players: p.save()
+    session.save()
+    for ps in player_sessions_rich: ps.save()
 
-def test_roster_serialization(player_sessions_rich):
     rosters = generate_team_assignments(player_sessions_rich)
-    rosters_json = json.dumps(rosters, cls=PlayerSessionEncoder)
+    rosters_json = json.dumps(rosters)
       #serializers.serialize('json', rosters)
 
-    new_rosters = json.loads(rosters_json, cls=PlayerSessionDecoder)
+    new_rosters = json.loads(rosters_json)
     assert new_rosters == rosters
-
-
-
 
 def test_select_player_for_position(player_sessions_rich, player_sessions_sparse):
     assert select_player_for_position('Skip', player_sessions_rich) in {player_sessions_rich[0], player_sessions_rich[4]}
@@ -83,44 +84,48 @@ def test_set_team_player(player_sessions_rich):
     player_sessions = player_sessions_rich.copy()
 
     set_team_player(team, 'Skip', player_sessions_rich[0], player_sessions)
-    assert team['Skip'] == player_sessions_rich[0]
+    assert team['Skip'] == player_sessions_rich[0].pk
     assert team['Skip'] not in player_sessions
     set_team_player(team, 'Vice', player_sessions_rich[1], player_sessions)
-    assert team['Vice'] == player_sessions_rich[1]
+    assert team['Vice'] == player_sessions_rich[1].pk
     assert team['Vice'] not in player_sessions
     set_team_player(team, 'Second', player_sessions_rich[2], player_sessions)
-    assert team['Second'] == player_sessions_rich[2]
+    assert team['Second'] == player_sessions_rich[2].pk
     assert team['Second'] not in player_sessions
     set_team_player(team, 'Lead', player_sessions_rich[3], player_sessions)
-    assert team['Lead'] == player_sessions_rich[3]
+    assert team['Lead'] == player_sessions_rich[3].pk
     assert team['Lead'] not in player_sessions
 
-def test_generate_team_assignments(player_sessions_sparse):
+@pytest.mark.django_db
+def test_generate_team_assignments(players, player_sessions_sparse, session):
+    for p in players: p.save()
+    session.save()
+    for ps in player_sessions_sparse: ps.save()
 
     player_sessions = player_sessions_sparse.copy()
     teams = generate_team_assignments(player_sessions, False)
     assert len(teams) == 2
-    assert teams[0]['Skip'] == player_sessions_sparse[0]
-    assert teams[0]['Vice'] == player_sessions_sparse[1]
-    assert teams[0]['Second'] == player_sessions_sparse[2]
-    assert teams[0]['Lead'] == player_sessions_sparse[3]
-    assert teams[1]['Skip'] == player_sessions_sparse[4]
-    assert teams[1]['Vice'] == player_sessions_sparse[5]
-    assert teams[1]['Second'] == player_sessions_sparse[6]
-    assert teams[1]['Lead'] == player_sessions_sparse[7]
+    assert teams[0]['Skip'] == player_sessions_sparse[0].pk
+    assert teams[0]['Vice'] == player_sessions_sparse[1].pk
+    assert teams[0]['Second'] == player_sessions_sparse[2].pk
+    assert teams[0]['Lead'] == player_sessions_sparse[3].pk
+    assert teams[1]['Skip'] == player_sessions_sparse[4].pk
+    assert teams[1]['Vice'] == player_sessions_sparse[5].pk
+    assert teams[1]['Second'] == player_sessions_sparse[6].pk
+    assert teams[1]['Lead'] == player_sessions_sparse[7].pk
     assert player_sessions == []
 
     player_sessions = player_sessions_sparse.copy()
     teams = generate_team_assignments(player_sessions, True)
     assert len(teams) == 2
-    assert teams[0]['Skip'] == player_sessions_sparse[0]
-    assert teams[0]['Vice'] == player_sessions_sparse[1]
-    assert teams[0]['Second'] == player_sessions_sparse[6]
-    assert teams[0]['Lead'] == player_sessions_sparse[3]
-    assert teams[1]['Skip'] == player_sessions_sparse[4]
-    assert teams[1]['Vice'] == player_sessions_sparse[5]
-    assert teams[1]['Second'] == player_sessions_sparse[2]
-    assert teams[1]['Lead'] == player_sessions_sparse[7]
+    assert teams[0]['Skip'] == player_sessions_sparse[0].pk
+    assert teams[0]['Vice'] == player_sessions_sparse[1].pk
+    assert teams[0]['Second'] == player_sessions_sparse[6].pk
+    assert teams[0]['Lead'] == player_sessions_sparse[3].pk
+    assert teams[1]['Skip'] == player_sessions_sparse[4].pk
+    assert teams[1]['Vice'] == player_sessions_sparse[5].pk
+    assert teams[1]['Second'] == player_sessions_sparse[2].pk
+    assert teams[1]['Lead'] == player_sessions_sparse[7].pk
     assert player_sessions == []
 
 @pytest.mark.django_db
@@ -143,9 +148,22 @@ def test_generate_teams_for_session(players, player_sessions_sparse, session):
     assert team2.second == player_sessions_sparse[2].player
     assert team2.lead == player_sessions_sparse[7].player
 
+@pytest.mark.django_db
+def test_hydrate_rosters(players, player_sessions_sparse, session):
+    for p in players: p.save()
+    session.save()
+    for ps in player_sessions_sparse: ps.save()
 
-
-
-
+    rosters = generate_multiple_rosters(session.pk, 2, False)
+    hydrated_rosters = hydrate_rosters(rosters)
+    assert len(hydrated_rosters) == 2
+    assert hydrated_rosters[0][0]['Skip'] == player_sessions_sparse[0]
+    assert hydrated_rosters[0][0]['Vice'] == player_sessions_sparse[1]
+    assert hydrated_rosters[0][0]['Second'] == player_sessions_sparse[2]
+    assert hydrated_rosters[0][0]['Lead'] == player_sessions_sparse[3]
+    assert hydrated_rosters[1][1]['Skip'] == player_sessions_sparse[4]
+    assert hydrated_rosters[1][1]['Vice'] == player_sessions_sparse[5]
+    assert hydrated_rosters[1][1]['Second'] == player_sessions_sparse[6]
+    assert hydrated_rosters[1][1]['Lead'] == player_sessions_sparse[7]
 
 

@@ -7,7 +7,7 @@ from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
-from .team_generation import generate_multiple_rosters, generate_teams_for_session
+from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
 
 def create_session(request):
     if request.method == 'POST':
@@ -107,11 +107,8 @@ def generate_teams(request, session_id):
             return redirect('team_list', session_id=session_id)
         else:
             rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with)
-            rosters_list = []
-            for roster in rosters:
-                rosters_list.append([team for team in roster])
 
-            request.session['generated_rosters'] = rosters_list
+            request.session['generated_rosters'] = rosters
             return redirect('roster_review', session_id=session_id)
     else:
         return redirect('session_list')
@@ -120,7 +117,8 @@ def roster_review(request, session_id):
     rosters = request.session.get('generated_rosters', [])
     if not rosters:
         return redirect('session_list')  # Handle the case where rosters are not found
-    return render(request, 'roster_review.html', {'session_id': session_id, 'rosters': rosters})
+    print(rosters)
+    return render(request, 'roster_review.html', {'session_id': session_id, 'rosters': hydrate_rosters(rosters)})
 
 def select_roster(request, session_id):
     if request.method == 'POST':
@@ -136,19 +134,6 @@ def select_roster(request, session_id):
         return redirect('team_list', session_id=session_id)
     else:
         return redirect('session_list')
-
-def apply_team_roster(session_id, roster):
-    session = get_object_or_404(Session, pk=session_id)
-    teams = []
-    for team_data in roster:
-        teams.append({
-            'team_number': team_data['team_number'],
-            'skip': PlayerSession.objects.get(pk=team_data['skip']['id']),
-            'vice': PlayerSession.objects.get(pk=team_data['vice']['id']),
-            'second': PlayerSession.objects.get(pk=team_data['second']['id']),
-            'lead': PlayerSession.objects.get(pk=team_data['lead']['id'])
-        })
-    apply_team_roster(session, teams)
 
 def team_list(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
