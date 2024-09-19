@@ -7,7 +7,7 @@ from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
-from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
+from .team_generation import apply_team_roster, evaluate_rosters, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
 
 def create_session(request):
     if request.method == 'POST':
@@ -118,7 +118,10 @@ def roster_review(request, session_id):
     if not rosters:
         return redirect('session_list')  # Handle the case where rosters are not found
     print(rosters)
-    return render(request, 'roster_review.html', {'session_id': session_id, 'rosters': hydrate_rosters(rosters)})
+    roster_scores = evaluate_rosters(rosters, session_id)
+    print(roster_scores)
+
+    return render(request, 'roster_review.html', {'session_id': session_id, 'rosters': zip(hydrate_rosters(rosters), roster_scores)})
 
 def select_roster(request, session_id):
     if request.method == 'POST':

@@ -9,9 +9,10 @@
     <h1>Review and Select a Roster</h1>
     <form action="{% url 'select_roster' session_id %}" method="post">
         {% csrf_token %}
-        {% for roster in rosters %}
+        {% for roster, roster_score in rosters %}
             <div>
                 <h2>Roster {{ forloop.counter }}</h2>
+                <p>Score: {{ roster_score.score }}</p>
                 <ul>
                     {% for team in roster %}
                         <li>Team {{ team.team_number }}: {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }}, {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }}, {{ team.Second.player.first_name }} {{ team.Second.player.last_name }}, {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }}</li>
@@ -23,6 +24,7 @@
             </div>
         {% endfor %}
         <button type="submit">Submit</button>
+
     </form>
 </body>
 </html>

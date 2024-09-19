@@ -151,3 +151,13 @@ def hydrate_rosters(rosters):
             hydrated_roster.append(hydrated_team)
         hydrated_rosters.append(hydrated_roster)
     return hydrated_rosters
+
+
+def evaluate_rosters(rosters, session_id):
+    # Calculate a score for each roster
+    roster_scores = [{'score': 0} for _ in range(len(rosters))]
+    for i, roster in enumerate(rosters):
+        roster_scores[i]['score'] = random.randint(1, 100)
+    
+    # Return the evaluated rosters
+    return roster_scores 
