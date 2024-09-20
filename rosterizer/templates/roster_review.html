@@ -1,28 +1,58 @@
 <!-- templates/roster_review.html -->
 
+
+
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Review Rosters</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/2.1.6/css/dataTables.dataTables.css" />
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.7.1.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.datatables.net/2.1.6/js/dataTables.js"></script>
+    <script>
+         $(document).ready( function () {
+            $('#roster-table').DataTable();
+         } );
+    </script>
 </head>
+
 <body>
     <h1>Review and Select a Roster</h1>
     <form action="{% url 'select_roster' session_id %}" method="post">
         {% csrf_token %}
-        {% for roster, roster_score in rosters %}
-            <div>
-                <h2>Roster {{ forloop.counter }}</h2>
-                <p>Score: {{ roster_score.score }}</p>
-                <ul>
-                    {% for team in roster %}
-                        <li>Team {{ team.team_number }}: {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }}, {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }}, {{ team.Second.player.first_name }} {{ team.Second.player.last_name }}, {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }}</li>
-                    {% endfor %}
-                </ul>
-                <label>
-                    <input type="radio" name="selected_roster" value="{{ forloop.counter0 }}"> Select this roster
-                </label>
-            </div>
-        {% endfor %}
+        <table id="roster-table", class="display">
+            <thead>
+                <tr>
+                    <th>Select</th>
+                    <th>Roster</th>
+                    <th>Score</th>
+                    <th>Teams</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for roster, roster_score in rosters %}
+                    <tr>
+                        <td>
+                            <label>
+                                <input type="radio" name="selected_roster" value="{{ forloop.counter0 }}"> Select this roster
+                            </label>
+                        </td>
+                        <td>Roster {{ forloop.counter }}</td>
+                        <td>{{ roster_score.score }}</td>
+                        <td>
+                            {% for team in roster %}
+                            {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }} /
+                            {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }} /
+                            {{ team.Second.player.first_name }} {{ team.Second.player.last_name }} /
+                            {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }}<br>
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         <button type="submit">Submit</button>
 
     </form>
