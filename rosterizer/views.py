@@ -117,9 +117,7 @@ def roster_review(request, session_id):
     rosters = request.session.get('generated_rosters', [])
     if not rosters:
         return redirect('session_list')  # Handle the case where rosters are not found
-    print(rosters)
     roster_scores = evaluate_rosters(rosters, session_id)
-    print(roster_scores)
 
     return render(request, 'roster_review.html', {'session_id': session_id, 'rosters': zip(hydrate_rosters(rosters), roster_scores)})
 

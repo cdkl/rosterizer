@@ -28,6 +28,9 @@
                     <th>Select</th>
                     <th>Roster</th>
                     <th>Score</th>
+                    <th>Players Assigned</th>
+                    <th>Incomplete Teams</th>
+                    <th>Position Preference</th>
                     <th>Teams</th>
                 </tr>
             </thead>
@@ -41,6 +44,9 @@
                         </td>
                         <td>Roster {{ forloop.counter }}</td>
                         <td>{{ roster_score.score }}</td>
+                        <td>{{ roster_score.completeness }}</td>
+                        <td>{{ roster_score.incomplete_teams }}</td>
+                        <td>{{ roster_score.position_preference }}</td>
                         <td>
                             {% for team in roster %}
                             {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }} /
