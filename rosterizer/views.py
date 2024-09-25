@@ -5,6 +5,7 @@ from django.contrib import messages
 
 from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
+from rosterizer.utilities import check_player_issues
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
 from .team_generation import apply_team_roster, evaluate_rosters, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
@@ -95,7 +96,9 @@ def players_in_session(request, session_id):
 
 def generate_teams_form(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
-    return render(request, 'generate_teams.html', {'session': session})
+    player_issues = check_player_issues(session)
+
+    return render(request, 'generate_teams.html', {'session': session, 'player_issues': player_issues})
 
 def generate_teams(request, session_id):
     if request.method == 'POST':

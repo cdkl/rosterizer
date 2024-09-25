@@ -4,6 +4,7 @@ from .team_generation import generate_multiple_rosters, generate_team_assignment
 from .team_generation import select_player_for_position
 from .models import Player, PlayerSessionDecoder, PlayerSessionEncoder, Session, PlayerSession, Team
 from django.core import serializers
+import random
 
 @pytest.fixture
 def players():
@@ -42,6 +43,18 @@ def player_sessions_sparse(players, session):
     player_session5 = PlayerSession(pk=5, player=players[4], session=session, years_curled=25, preferred_position1='', preferred_position2='Skip', play_with='')
     player_session6 = PlayerSession(pk=6, player=players[5], session=session, years_curled=30, preferred_position1='', preferred_position2='Vice', play_with='')
     player_session7 = PlayerSession(pk=7, player=players[6], session=session, years_curled=35, preferred_position1='', preferred_position2='Second', play_with='Jane Smith')
+    player_session8 = PlayerSession(pk=8, player=players[7], session=session, years_curled=40, preferred_position1='', preferred_position2='Lead', play_with='')
+    return [player_session1, player_session2, player_session3, player_session4, player_session5, player_session6, player_session7, player_session8] 
+
+@pytest.fixture
+def player_sessions_missing_preferences(players, session):
+    player_session1 = PlayerSession(pk=1, player=players[0], session=session, years_curled=5, preferred_position1='Skip', preferred_position2='', play_with='')
+    player_session2 = PlayerSession(pk=2, player=players[1], session=session, years_curled=10, preferred_position1='Vice', preferred_position2='', play_with='Eve Black')
+    player_session3 = PlayerSession(pk=3, player=players[2], session=session, years_curled=15, preferred_position1='Second', preferred_position2='', play_with='')
+    player_session4 = PlayerSession(pk=4, player=players[3], session=session, years_curled=20, preferred_position1='Lead', preferred_position2='', play_with='')
+    player_session5 = PlayerSession(pk=5, player=players[4], session=session, years_curled=25, preferred_position1='', preferred_position2='Skip', play_with='')
+    player_session6 = PlayerSession(pk=6, player=players[5], session=session, years_curled=30, preferred_position1='', preferred_position2='', play_with='')
+    player_session7 = PlayerSession(pk=7, player=players[6], session=session, years_curled=35, preferred_position1='', preferred_position2='', play_with='Jane Smith')
     player_session8 = PlayerSession(pk=8, player=players[7], session=session, years_curled=40, preferred_position1='', preferred_position2='Lead', play_with='')
     return [player_session1, player_session2, player_session3, player_session4, player_session5, player_session6, player_session7, player_session8] 
 
@@ -126,6 +139,43 @@ def test_generate_team_assignments(players, player_sessions_sparse, session):
     assert teams[1]['Vice'] == player_sessions_sparse[5].pk
     assert teams[1]['Second'] == player_sessions_sparse[2].pk
     assert teams[1]['Lead'] == player_sessions_sparse[7].pk
+    assert player_sessions == []
+
+def mock_choice(arr):
+    return arr[0]
+
+@pytest.mark.django_db
+def test_generate_team_assignments_with_missing_preferences(players, player_sessions_missing_preferences, session, monkeypatch):
+    monkeypatch.setattr(random, 'choice', mock_choice)
+
+    for p in players: p.save()
+    session.save()
+    for ps in player_sessions_missing_preferences: ps.save()
+
+    player_sessions = player_sessions_missing_preferences.copy()
+    teams = generate_team_assignments(player_sessions, False)
+    assert len(teams) == 2
+    assert teams[0]['Skip'] == player_sessions_missing_preferences[0].pk
+    assert teams[0]['Vice'] == player_sessions_missing_preferences[1].pk
+    assert teams[0]['Second'] == player_sessions_missing_preferences[2].pk
+    assert teams[0]['Lead'] == player_sessions_missing_preferences[3].pk
+    assert teams[1]['Skip'] == player_sessions_missing_preferences[4].pk
+    assert teams[1]['Vice'] == player_sessions_missing_preferences[6].pk
+    assert teams[1]['Second'] == player_sessions_missing_preferences[5].pk
+    assert teams[1]['Lead'] == player_sessions_missing_preferences[7].pk
+    assert player_sessions == []
+
+    player_sessions = player_sessions_missing_preferences.copy()
+    teams = generate_team_assignments(player_sessions, True)
+    assert len(teams) == 2
+    assert teams[0]['Skip'] == player_sessions_missing_preferences[0].pk
+    assert teams[0]['Vice'] == player_sessions_missing_preferences[1].pk
+    assert teams[0]['Second'] == player_sessions_missing_preferences[2].pk
+    assert teams[0]['Lead'] == player_sessions_missing_preferences[6].pk
+    assert teams[1]['Skip'] == player_sessions_missing_preferences[4].pk
+    assert teams[1]['Vice'] == player_sessions_missing_preferences[7].pk
+    assert teams[1]['Second'] == player_sessions_missing_preferences[5].pk
+    assert teams[1]['Lead'] == player_sessions_missing_preferences[3].pk
     assert player_sessions == []
 
 @pytest.mark.django_db

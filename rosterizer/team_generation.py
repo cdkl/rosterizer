@@ -62,6 +62,7 @@ def generate_team_assignments(player_sessions, use_play_with=True):
             if skip:
                 set_team_player(team, 'Skip', skip, player_sessions)
                 if use_play_with: add_play_with_players_to_team(team, player_sessions)
+                
         if team['Skip'] is None:
             logging.warning(f'Unable to assign a skip to team {team}')
     
@@ -100,6 +101,19 @@ def generate_team_assignments(player_sessions, use_play_with=True):
 
     # at this point we should have no more player sessions to assign
     if len(player_sessions) > 0:
+        logging.info(f"Players remaining: {player_sessions}, beginning to fill holes in rosters")
+        # Let's fill roster holes. Start with teams with player count of 1:
+        for team_player_count in range (1, 4):
+            for team in teams:
+                if len(player_sessions) > 0 and sum(team[position] is not None for position in ['Skip', 'Vice', 'Second', 'Lead']) == team_player_count:
+                    # we still have unaffiliated players, and we have a team with a low enough player count to add.
+                    player_session = random.choice(player_sessions)
+                    for position in ['Lead', 'Second', 'Vice', 'Skip']:
+                        if team[position] is None:
+                            set_team_player(team, position, player_session, player_sessions)
+                            break
+
+    if len(player_sessions) > 0:
         logging.warning(f'Unable to assign all players to teams: {player_sessions}')
     
     return teams
@@ -114,12 +128,21 @@ def select_player_for_position(position, player_sessions):
         return selected
     return None
 
+# Helper function to select a player with no preference - possibly not needed but we'll hold onto it for now
+# def select_no_preference_player(player_sessions):
+#     candidates = [ps for ps in player_sessions if not ps.preferred_position1 and not ps.preferred_position2]
+#     if candidates:
+#         selected = random.choice(candidates)
+#         logging.info(f"Selected no preference player {selected.player} as last resort")
+#         return selected
+#     return None
+
 # Helper function to assign play with players to an existing team
 def add_play_with_players_to_team(team, player_sessions):
     for _, team_position_player_session_id in team.items():
         team_position_player_session = PlayerSession.objects.get(pk=team_position_player_session_id) if team_position_player_session_id else None
         if team_position_player_session is not None:
-            preferred_player = next((ps for ps in player_sessions if ps.player.get_full_name() == team_position_player_session.play_with), None)
+            preferred_player = next((ps for ps in player_sessions if ps.player.full_name == team_position_player_session.play_with), None)
             if preferred_player:
                 if preferred_player.preferred_position1 and team[preferred_player.preferred_position1] is None:
                     set_team_player(team, preferred_player.preferred_position1, preferred_player, player_sessions)
@@ -127,6 +150,12 @@ def add_play_with_players_to_team(team, player_sessions):
                 elif preferred_player.preferred_position2 and team[preferred_player.preferred_position2] is None:
                     set_team_player(team, preferred_player.preferred_position2, preferred_player, player_sessions)
                     logging.info(f"Added {team_position_player_session.player} partner {preferred_player.player} to team {team} at preferred position 2 {preferred_player.preferred_position2}")
+                elif not preferred_player.preferred_position1 and not preferred_player.preferred_position2 and any(team[position] is None for position in ['Vice', 'Second', 'Lead']):
+                    for position in ['Lead', 'Second', 'Vice']:
+                        if team[position] is None:
+                            set_team_player(team, position, preferred_player, player_sessions)
+                            logging.info(f"Added {team_position_player_session.player} partner {preferred_player.player} without preferred position to team {team} at first available position {position}")
+                            break
                 else:
                     logging.warning(f"Unable to add {preferred_player.player} to team {team} at either preferred position")
 
@@ -134,7 +163,7 @@ def add_play_with_players_to_team(team, player_sessions):
 def set_team_player(team, position, player_session, player_sessions):
     team[position] = player_session.id
     player_sessions.remove(player_session)
-    logging.info(f"Assigned skip {player_session.player} to team {team}")
+    logging.info(f"Assigned {position} {player_session.player} to team {team}")
 
 # utility function to hydrate the rosters with PlayerSession objects
 def hydrate_rosters(rosters):
@@ -209,20 +238,18 @@ def evaluate_incomplete_teams(roster, session_id):
 def evaluate_position_preference(roster, session_id):
     # Evaluate the position preference of players in a roster
     player_sessions = PlayerSession.objects.filter(session_id=session_id)
-    preference1_score = 0
-    preference2_score = 0
+    preference_score = 0
     for team in roster:
         for position, player_session_id in team.items():
             if player_session_id:
                 player_session = player_sessions.get(pk=player_session_id)
                 if player_session.preferred_position1 == position:
-                    preference1_score += 1
-                if player_session.preferred_position2 == position:
-                    preference2_score += 1
+                    preference_score += 1
+                elif player_session.preferred_position2 == position:
+                    preference_score += 0.5
+                elif player_session.preferred_position1 not in ('Skip', 'Vice', 'Second', 'Lead') and player_session.preferred_position2 not in ('Skip', 'Vice', 'Second', 'Lead'):
+                    preference_score += 1
 
     player_count = len(player_sessions)
-    total_preference = (preference1_score / player_count) + ((preference2_score/2) / player_count)
-    if total_preference < 0.5:
-        return 0.0
-    else:
-        return (total_preference - 0.5) * 2
+    total_preference = preference_score / player_count
+    return total_preference

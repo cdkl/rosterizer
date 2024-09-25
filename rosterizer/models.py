@@ -5,10 +5,11 @@ from django.db import models
 class Player(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    def get_full_name(self):
+    @property
+    def full_name(self):
         return f'{self.first_name} {self.last_name}'
     def __str__(self):
-        return self.get_full_name()
+        return self.full_name
     home_phone = models.CharField(max_length=20, blank=True, null=True)
     work_phone = models.CharField(max_length=20, blank=True, null=True)
     cell_phone = models.CharField(max_length=20, blank=True, null=True)
@@ -37,7 +38,7 @@ class PlayerSession(models.Model):
                 'id': self.player.id,
                 'first_name': self.player.first_name,
                 'last_name': self.player.last_name,
-                'full_name': self.player.get_full_name(),
+                'full_name': self.player.full_name,
             },
             'session': {
                 'id': self.session.id,
