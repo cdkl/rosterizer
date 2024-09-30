@@ -55,7 +55,7 @@ def test_import_players_with_valid_file(rf):
     file = open(file_path, 'rb')
     uploaded_file = SimpleUploadedFile(file.name, file.read())
     
-    request = rf.post(f'/import_players/{session_id}/', {'html_file': uploaded_file})
+    request = rf.post(f'/import_players/{session_id}/', {'player_file': uploaded_file})
     response = import_players(request, session_id)
     print(response.content.decode())
  #   assert response.status_code == 302

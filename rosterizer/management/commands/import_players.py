@@ -8,11 +8,17 @@ class ImportPlayersCommand(BaseCommand):
 	help = 'Import players from an HTML file and populate PlayerSession'
 
 	def add_arguments(self, parser):
-		parser.add_argument('html_file', type=str, help='The path to the HTML file to be imported')
+		parser.add_argument('player_file', type=str, help='The path to the HTML or CSV file to be imported')
 		parser.add_argument('session_id', type=int, help='The ID of the session to associate players with')
 
 	def handle(self, *args, **kwargs):
-		html_file = kwargs['html_file']
+		if kwargs['player_file'].endswith('.html'):
+			self.handle_html_file(**kwargs)
+		else:
+			raise NotImplementedError('Unsupported file format. Please use an HTML file')
+
+	def handle_html_file(self, **kwargs):	
+		html_file = kwargs['player_file']
 		session_id = kwargs['session_id']
 
 		try:
@@ -27,7 +33,7 @@ class ImportPlayersCommand(BaseCommand):
 
 		with open(html_file, 'r', encoding='utf-8') as file:
 			soup = BeautifulSoup(file, 'lxml')
-			table = soup.find('table', class_='adminlist')
+			table = soup.find('table')
 			rows = table.find('tbody').find_all('tr')
 
 			for row in rows:
@@ -48,15 +54,15 @@ class ImportPlayersCommand(BaseCommand):
 
 				first_name, last_name = utilities.parse_name(member_name)
 
-				player, created = Player.objects.get_or_create(
-					first_name=first_name,
-					last_name=last_name,
+				player, created = Player.objects.update_or_create(
+					first_name=first_name.strip(),
+					last_name=last_name.strip(),
 					defaults={
 						'home_phone': home_phone,
 						'work_phone': work_phone,
 						'cell_phone': cell_phone,
 						'email': email,
-						'gender': gender,
+						'gender': gender[0].upper() if gender else None
 					}
 				)
 

@@ -4,7 +4,7 @@ from django.core.files.storage import FileSystemStorage
 from django.contrib import messages
 
 from rosterizer.management.commands.import_players import ImportPlayersCommand
-from rosterizer.management.commands.import_roster import ImportRosterHtmlCommand, ImportRosterCsvCommand
+from rosterizer.management.commands.import_roster import ImportRosterCsvCommand
 from rosterizer.utilities import check_player_issues
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
@@ -40,14 +40,14 @@ def import_players(request, session_id):
     if request.method == 'POST':
         form = PlayerImportForm(request.POST, request.FILES)
         if form.is_valid():
-            html_file = request.FILES['html_file']
+            html_file = request.FILES['player_file']
             fs = FileSystemStorage()
             filename = fs.save(html_file.name, html_file)
             uploaded_file_path = fs.path(filename)
 
             # Invoke the import logic
             import_command = ImportPlayersCommand()
-            import_command.handle(html_file=uploaded_file_path, session_id=session_id)
+            import_command.handle(player_file=uploaded_file_path, session_id=session_id)
 
             # messages.success(request, 'Players imported successfully')
             return redirect('session_list')  # Adjust the redirect as needed
@@ -80,7 +80,7 @@ def import_roster(request, session_id):
             uploaded_file_path = fs.path(filename)
 
             import_command = ImportRosterCsvCommand()
-            import_command.handle(roster_file=uploaded_file_path, session_id=session_id)
+            import_command.handle(roster_file=uploaded_file_path, session_id=session_id, create_teams=True)
 
             # messages.success(request, 'Roster imported successfully')
             return redirect('session_list')  # Adjust the redirect as needed
@@ -104,15 +104,10 @@ def generate_teams(request, session_id):
     if request.method == 'POST':
         use_play_with = request.POST.get('use_play_with', 'on')
         num_rosters = int(request.POST.get('num_rosters', 1))
-        if num_rosters == 1:
-            result = generate_teams_for_session(session_id, use_play_with)  # Call the function
-            # messages.success(request, 'Teams have been generated successfully')
-            return redirect('team_list', session_id=session_id)
-        else:
-            rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with)
+        rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with)
 
-            request.session['generated_rosters'] = rosters
-            return redirect('roster_review', session_id=session_id)
+        request.session['generated_rosters'] = rosters
+        return redirect('roster_review', session_id=session_id)
     else:
         return redirect('session_list')
 
