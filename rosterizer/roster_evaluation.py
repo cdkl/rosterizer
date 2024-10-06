@@ -1,3 +1,4 @@
+from statistics import fmean
 from rosterizer.models import PlayerSession, Team
 from .utilities import get_previous_session
 
@@ -8,11 +9,11 @@ def evaluate_rosters(rosters, session_id):
         roster_scores[i]['completeness'] = evaluate_completeness(roster, session_id)
         roster_scores[i]['incomplete_teams'] = evaluate_incomplete_teams(roster, session_id)
         roster_scores[i]['position_preference'] = evaluate_position_preference(roster, session_id)
-        roster_scores[i]['team_continuity'] = evaluate_team_continuity(roster, session_id)
+        roster_scores[i]['team_continuity'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True)
         roster_scores[i]['score'] = (roster_scores[i]['completeness'] * 
                                      roster_scores[i]['incomplete_teams'] * 
-                                     roster_scores[i]['position_preference']) 
-#                                     roster_scores[i]['team_continuity'])
+                                     roster_scores[i]['position_preference'] * 
+                                     fmean(roster_scores[i]['team_continuity']))
     
     # Return the evaluated rosters
     return roster_scores 
