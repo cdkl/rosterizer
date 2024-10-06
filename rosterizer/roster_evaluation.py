@@ -1,4 +1,5 @@
 from rosterizer.models import PlayerSession
+from .utilities import get_previous_session
 
 def evaluate_rosters(rosters, session_id):
     # Calculate a score for each roster
@@ -7,7 +8,11 @@ def evaluate_rosters(rosters, session_id):
         roster_scores[i]['completeness'] = evaluate_completeness(roster, session_id)
         roster_scores[i]['incomplete_teams'] = evaluate_incomplete_teams(roster, session_id)
         roster_scores[i]['position_preference'] = evaluate_position_preference(roster, session_id)
-        roster_scores[i]['score'] = roster_scores[i]['completeness'] * roster_scores[i]['incomplete_teams'] * roster_scores[i]['position_preference']
+#        roster_scores[i]['team_continuity'] = evaluate_team_continuity(roster, session_id)
+        roster_scores[i]['score'] = (roster_scores[i]['completeness'] * 
+                                     roster_scores[i]['incomplete_teams'] * 
+                                     roster_scores[i]['position_preference']) 
+#                                     roster_scores[i]['team_continuity'])
     
     # Return the evaluated rosters
     return roster_scores 
@@ -68,3 +73,48 @@ def evaluate_position_preference(roster, session_id):
     player_count = len(player_sessions)
     total_preference = preference_score / player_count
     return total_preference
+
+def evaluate_team_continuity(roster, session_id):
+    previous_session_id = get_previous_session(session_id)
+    if previous_session_id is None:
+        return [1.0] * len(roster)  # If no previous session, all teams get a score of 1.0
+
+    current_player_sessions = PlayerSession.objects.filter(session_id=session_id)
+    previous_player_sessions = PlayerSession.objects.filter(session_id=previous_session_id)
+
+    # Create a dictionary to map player IDs to their previous teams
+    previous_teams = {}
+    for player_session in previous_player_sessions:
+        player_pk = player_session.player.pk
+        team_pk = player_session.team.pk  # Assuming PlayerSession has a team attribute
+        if team_pk not in previous_teams:
+            previous_teams[team_pk] = set()
+        previous_teams[team_pk].add(player_pk)
+
+    team_scores = []
+
+    for team in roster:
+        current_team_players = set()
+        for position, player_session_id in team.items():
+            if player_session_id:
+                player_session = current_player_sessions.get(pk=player_session_id)
+                current_team_players.add(player_session.player.pk)
+
+        max_players_together = 0
+        for previous_team_players in previous_teams.values():
+            players_together = len(current_team_players & previous_team_players)
+            if players_together > max_players_together:
+                max_players_together = players_together
+
+        if max_players_together <= 1:
+            score = 1.0
+        elif max_players_together == 2:
+            score = 0.66
+        elif max_players_together == 3:
+            score = 0.33
+        else:
+            score = 0.0
+
+        team_scores.append(score)
+
+    return team_scores
