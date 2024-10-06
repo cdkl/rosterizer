@@ -28,7 +28,7 @@ def parse_name(full_name):
     finally:
         return first_name,last_name
 
-def get_previous_session(session):
+def get_previous_session(session_id):
     """
     Retrieves the previous session object based on the given session.
     Args:
@@ -36,6 +36,11 @@ def get_previous_session(session):
     Returns:
         Session: The previous session object, or None if no previous session exists.
     """
+    try:
+        session = Session.objects.get(pk=session_id)
+    except Session.DoesNotExist:
+        raise ValueError(f'Session with id {session_id} does not exist')
+    
     previous_session = None
     previous_sessions = Session.objects.filter(year=session.year, session_number__lt=session.session_number).order_by('session_number')
     if previous_sessions.exists():

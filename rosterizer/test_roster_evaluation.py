@@ -1,4 +1,6 @@
 import pytest
+
+from rosterizer.models import Player, PlayerSession, Session, Team
 from .roster_evaluation import evaluate_completeness, evaluate_incomplete_teams, evaluate_team_continuity
 
 def generate_test_roster(players):
@@ -75,6 +77,7 @@ def mock_player_session(monkeypatch):
 
     monkeypatch.setattr('rosterizer.models.PlayerSession.objects.filter', mock_filter)
     monkeypatch.setattr('rosterizer.models.PlayerSession.objects.get', lambda pk: MockPlayerSession(pk, 1, MockPlayer(pk), MockTeam(pk)))
+    monkeypatch.setattr('rosterizer.models.Team.objects.get', lambda pk: MockTeam(pk))
     monkeypatch.setattr('rosterizer.roster_evaluation.get_previous_session', lambda session_id: 0 if session_id == 1 else None)
     return players_store, MockPlayerSession, MockPlayer, MockTeam
 
@@ -143,61 +146,54 @@ def test_evaluate_team_continuity_no_previous_session(mock_player_session):
     session_id = 0
     assert evaluate_team_continuity(roster, session_id) == [1.0]
 
-def test_evaluate_team_continuity_no_players_together(mock_player_session):
-    players_store, MockPlayerSession, MockPlayer, MockTeam = mock_player_session
-    players_store['current'] = [MockPlayerSession(1, 1, MockPlayer(1), MockTeam(1)), MockPlayerSession(2, 1, MockPlayer(2), MockTeam(1)), 
-                                MockPlayerSession(3, 1, MockPlayer(3), MockTeam(1)), MockPlayerSession(4, 1, MockPlayer(4), MockTeam(1))]
-    players_store['previous'] = [MockPlayerSession(5, 0, MockPlayer(5), MockTeam(2)), MockPlayerSession(6, 0, MockPlayer(6), MockTeam(2)), 
-                                 MockPlayerSession(7, 0, MockPlayer(7), MockTeam(2)), MockPlayerSession(8, 0, MockPlayer(8), MockTeam(2))]
-    roster = generate_test_roster(players_store['current'])
-    session_id = 1
-    assert evaluate_team_continuity(roster, session_id) == [1.0]
+@pytest.fixture
+def default_sessions():
+    previous_session = Session.objects.create(pk=1, year=2020, session_number=1)
+    current_session= Session.objects.create(pk=2, year=2020, session_number=2)
+    return [previous_session, current_session]
 
-def test_evaluate_team_continuity_two_players_together(mock_player_session):
-    players_store, MockPlayerSession, MockPlayer, MockTeam = mock_player_session
-    players_store['current'] = [MockPlayerSession(1, 1, MockPlayer(1), MockTeam(1)), MockPlayerSession(2, 1, MockPlayer(2), MockTeam(1)), 
-                                MockPlayerSession(3, 1, MockPlayer(3), MockTeam(1)), MockPlayerSession(4, 1, MockPlayer(4), MockTeam(1))]
-    players_store['previous'] = [MockPlayerSession(1, 0, MockPlayer(1), MockTeam(2)), MockPlayerSession(2, 0, MockPlayer(2), MockTeam(2)), 
-                                 MockPlayerSession(5, 0, MockPlayer(5), MockTeam(3)), MockPlayerSession(6, 0, MockPlayer(6), MockTeam(3))]
-    roster = generate_test_roster(players_store['current'])
-    session_id = 1
-    assert evaluate_team_continuity(roster, session_id) == [0.66]
+@pytest.fixture
+def default_players(default_sessions):
+    players = [
+        Player.objects.create(pk=i) for i in range(1, 9)
+    ]
+    # Create PlayerSession entries
+    for i, player in enumerate(players[:8]):
+        PlayerSession.objects.create(pk=player.pk, session_id=default_sessions[1].pk, player=player, years_curled=1)
 
-def test_evaluate_team_continuity_three_players_together(mock_player_session):
-    players_store, MockPlayerSession, MockPlayer, MockTeam = mock_player_session
-    players_store['current'] = [MockPlayerSession(1, 1, MockPlayer(1), MockTeam(1)), MockPlayerSession(2, 1, MockPlayer(2), MockTeam(1)), 
-                                MockPlayerSession(3, 1, MockPlayer(3), MockTeam(1)), MockPlayerSession(4, 1, MockPlayer(4), MockTeam(1))]
-    players_store['previous'] = [MockPlayerSession(1, 0, MockPlayer(1), MockTeam(2)), MockPlayerSession(2, 0, MockPlayer(2), MockTeam(2)), 
-                                 MockPlayerSession(3, 0, MockPlayer(3), MockTeam(2)), MockPlayerSession(5, 0, MockPlayer(5), MockTeam(3))]
-    roster = generate_test_roster(players_store['current'])
-    session_id = 1
-    assert evaluate_team_continuity(roster, session_id) == [0.33]
+    return players
 
-def test_evaluate_team_continuity_all_players_together(mock_player_session):
-    players_store, MockPlayerSession, MockPlayer, MockTeam = mock_player_session
-    players_store['current'] = [MockPlayerSession(1, 1, MockPlayer(1), MockTeam(1)), MockPlayerSession(2, 1, MockPlayer(2), MockTeam(1)), 
-                                MockPlayerSession(3, 1, MockPlayer(3), MockTeam(1)), MockPlayerSession(4, 1, MockPlayer(4), MockTeam(1))]
-    players_store['previous'] = [MockPlayerSession(1, 0, MockPlayer(1), MockTeam(2)), MockPlayerSession(2, 0, MockPlayer(2), MockTeam(2)), 
-                                 MockPlayerSession(3, 0, MockPlayer(3), MockTeam(2)), MockPlayerSession(4, 0, MockPlayer(4), MockTeam(2))]
-    roster = generate_test_roster(players_store['current'])
-    session_id = 1
-    assert evaluate_team_continuity(roster, session_id) == [0.0]
+@pytest.mark.django_db
+def test_evaluate_team_continuity_no_players_together(default_sessions, default_players):
 
-def test_evaluate_team_continuity_one_team_none_together_one_team_three_together(mock_player_session):
-    players_store, MockPlayerSession, MockPlayer, MockTeam = mock_player_session
-    players_store['current'] = [MockPlayerSession(1, 1, MockPlayer(1), MockTeam(1)), MockPlayerSession(2, 1, MockPlayer(2), MockTeam(1)), 
-                                MockPlayerSession(3, 1, MockPlayer(3), MockTeam(1)), MockPlayerSession(4, 1, MockPlayer(4), MockTeam(1)),
-                                MockPlayerSession(5, 1, MockPlayer(5), MockTeam(2)), MockPlayerSession(6, 1, MockPlayer(6), MockTeam(2)), 
-                                MockPlayerSession(7, 1, MockPlayer(7), MockTeam(2)), MockPlayerSession(8, 1, MockPlayer(8), MockTeam(2)),
-                                MockPlayerSession(9, 1, MockPlayer(9), MockTeam(3)), MockPlayerSession(10, 1, MockPlayer(10), MockTeam(3)),
-                                MockPlayerSession(11, 1, MockPlayer(11), MockTeam(3)), MockPlayerSession(12, 1, MockPlayer(12), MockTeam(3)),
-                                MockPlayerSession(13, 1, MockPlayer(13), MockTeam(4)), MockPlayerSession(14, 1, MockPlayer(14), MockTeam(4)),
-                                MockPlayerSession(15, 1, MockPlayer(15), MockTeam(4)), MockPlayerSession(16, 1, MockPlayer(16), MockTeam(4))]
-    players_store['previous'] = [MockPlayerSession(1, 0, MockPlayer(1), MockTeam(3)), MockPlayerSession(5, 0, MockPlayer(5), MockTeam(3)), 
-                                 MockPlayerSession(9, 0, MockPlayer(9), MockTeam(3)), MockPlayerSession(13, 0, MockPlayer(13), MockTeam(3)),
-                                 MockPlayerSession(2, 0, MockPlayer(2), MockTeam(4)), MockPlayerSession(3, 0, MockPlayer(3), MockTeam(4)), 
-                                 MockPlayerSession(4, 0, MockPlayer(4), MockTeam(4)), MockPlayerSession(8, 0, MockPlayer(8), MockTeam(4))]
-    roster = generate_test_roster(players_store['current'])
-    session_id = 1
-    assert evaluate_team_continuity(roster, session_id) == [0.33, 1.0, 1.0, 1.0]
+    # Create mock players and teams
+    team1 = Team.objects.create(pk=1, team_number=1, session=default_sessions[0], 
+                                skip=default_players[0], vice=default_players[1], second=default_players[2], lead=default_players[3])
 
+    roster = [{'Skip': 5, 'Vice': 6, 'Second': 7, 'Lead': 8 }]
+
+    assert evaluate_team_continuity(roster, default_sessions[1].pk) == [1.0]
+
+@pytest.mark.django_db
+def test_evaluate_team_continuity_two_players_together(default_sessions, default_players):
+    team1 = Team.objects.create(pk=1, team_number=1, session=default_sessions[0],
+                                skip=default_players[0], vice=default_players[1], second=default_players[2], lead=default_players[3])
+    
+    roster = [{'Skip': 1, 'Vice': 2, 'Second': 5, 'Lead': 6}]
+    assert evaluate_team_continuity(roster, default_sessions[1].pk) == [0.66]
+
+@pytest.mark.django_db
+def test_evaluate_team_continuity_three_players_together(default_sessions, default_players):
+    team1 = Team.objects.create(pk=1, team_number=1, session=default_sessions[0],
+                                skip=default_players[0], vice=default_players[1], second=default_players[2], lead=default_players[3])
+    
+    roster = [{'Skip': 1, 'Vice': 2, 'Second': 4, 'Lead': 6}]
+    assert evaluate_team_continuity(roster, default_sessions[1].pk) == [0.33]
+
+@pytest.mark.django_db
+def test_evaluate_team_continuity_all_players_together(default_sessions, default_players):
+    team1 = Team.objects.create(pk=1, team_number=1, session=default_sessions[0],
+                                skip=default_players[0], vice=default_players[1], second=default_players[2], lead=default_players[3])
+    
+    roster = [{'Skip': 1, 'Vice': 2, 'Second': 4, 'Lead': 3}]
+    assert evaluate_team_continuity(roster, default_sessions[1].pk) == [0]
