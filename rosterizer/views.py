@@ -8,7 +8,8 @@ from rosterizer.management.commands.import_roster import ImportRosterCsvCommand
 from rosterizer.utilities import check_player_issues
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
-from .team_generation import apply_team_roster, evaluate_rosters, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
+from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
+from .roster_evaluation import evaluate_rosters
 
 def create_session(request):
     if request.method == 'POST':
