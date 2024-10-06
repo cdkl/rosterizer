@@ -46,12 +46,19 @@ def import_players(request, session_id):
             filename = fs.save(html_file.name, html_file)
             uploaded_file_path = fs.path(filename)
 
-            # Invoke the import logic
-            import_command = ImportPlayersCommand()
-            import_command.handle(player_file=uploaded_file_path, session_id=session_id)
+            # if the file is a csv file, use the ImportRosterCsvCommand
+            if uploaded_file_path.endswith('.csv'):
+                import_command = ImportRosterCsvCommand()
+                import_command.handle(roster_file=uploaded_file_path, session_id=session_id, create_teams=False)
+                # messages.success(request, 'Roster imported successfully')
+                return redirect('session_list')
+            else:
+                # Invoke the import logic
+                import_command = ImportPlayersCommand()
+                import_command.handle(player_file=uploaded_file_path, session_id=session_id)
 
-            # messages.success(request, 'Players imported successfully')
-            return redirect('session_list')  # Adjust the redirect as needed
+                # messages.success(request, 'Players imported successfully')
+                return redirect('session_list')  # Adjust the redirect as needed
     else:
         form = PlayerImportForm()
 
