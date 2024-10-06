@@ -84,4 +84,14 @@ class Team(models.Model):
             'second': self.second.to_dict() if self.second else None,
             'lead': self.lead.to_dict() if self.lead else None,
         }
-
+    def get_players(self):
+        players = []
+        if self.skip:
+            players.append(self.skip)
+        if self.vice:
+            players.append(self.vice)
+        if self.second:
+            players.append(self.second)
+        if self.lead:
+            players.append(self.lead)
+        return players

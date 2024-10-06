@@ -31,6 +31,7 @@
                     <th>Players Assigned</th>
                     <th>Incomplete Teams</th>
                     <th>Position Preference</th>
+                    <th>Team Continuity</th>
                     <th>Teams</th>
                 </tr>
             </thead>
@@ -47,12 +48,13 @@
                         <td>{{ roster_score.completeness }}</td>
                         <td>{{ roster_score.incomplete_teams }}</td>
                         <td>{{ roster_score.position_preference }}</td>
+                        <td>{{ roster_score.team_continuity }}</td>
                         <td>
                             {% for team in roster %}
                             {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }} /
                             {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }} /
                             {{ team.Second.player.first_name }} {{ team.Second.player.last_name }} /
-                            {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }}<br>
+                            {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }} <br>
                             {% endfor %}
                         </td>
                     </tr>
