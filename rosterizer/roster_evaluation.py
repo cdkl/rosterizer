@@ -74,29 +74,37 @@ def evaluate_position_preference(roster, session_id):
     total_preference = preference_score / player_count
     return total_preference
 
-def evaluate_team_continuity(roster, session_id):
+def evaluate_team_continuity(roster, session_id, exempt_plays_with=False):
     previous_session = get_previous_session(session_id)
     if previous_session is None:
         return [1.0] * len(roster)  # If no previous session, all teams get a score of 1.0
 
     current_player_sessions = PlayerSession.objects.filter(session_id=session_id)
 
-    previous_teams = []
+    previous_teams_pk = []
     for team in Team.objects.filter(session_id=previous_session.pk):
         player_pks = [player.pk for player in team.get_players()]
-        previous_teams.append(frozenset(player_pks))
+        previous_teams_pk.append(frozenset(player_pks))
 
     team_scores = []
 
     for team in roster:
         current_team_players = set()
+        current_team_players_pk = set()
         for player_session_id in team.values():
             if player_session_id is not None:
-                current_team_players.add(PlayerSession.objects.get(pk=player_session_id).player.pk)
+                if exempt_plays_with:
+                    # only add the player to the compare list if their play with partner isn't already there -they count only as 1
+                    player_session = PlayerSession.objects.get(pk=player_session_id)
+                    if any(player_session.play_with in p.full_name for p in current_team_players):
+                        continue
+                player = PlayerSession.objects.get(pk=player_session_id).player
+                current_team_players.add(player)
+                current_team_players_pk.add(player.pk)
 
         max_players_together = 0
-        for previous_team_players in previous_teams:
-            players_together = len(current_team_players & previous_team_players)
+        for previous_team_players_pk in previous_teams_pk:
+            players_together = len(current_team_players_pk & previous_team_players_pk)
             if players_together > max_players_together:
                 max_players_together = players_together
 
