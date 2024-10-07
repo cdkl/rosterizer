@@ -9,11 +9,15 @@ def evaluate_rosters(rosters, session_id):
         roster_scores[i]['completeness'] = evaluate_completeness(roster, session_id)
         roster_scores[i]['incomplete_teams'] = evaluate_incomplete_teams(roster, session_id)
         roster_scores[i]['position_preference'] = evaluate_position_preference(roster, session_id)
-        roster_scores[i]['team_continuity'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True)
+        roster_scores[i]['team_continuity_1'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=1)
+        roster_scores[i]['team_continuity_2'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=2)
+        roster_scores[i]['team_continuity_3'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=3)
         roster_scores[i]['score'] = (roster_scores[i]['completeness'] * 
                                      roster_scores[i]['incomplete_teams'] * 
                                      roster_scores[i]['position_preference'] * 
-                                     fmean(roster_scores[i]['team_continuity']))
+                                     fmean(roster_scores[i]['team_continuity_1']) *
+                                     (0.33 + fmean(roster_scores[i]['team_continuity_2'])*.67) * # weaken the effect of team continuity 2
+                                     (0.67 + fmean(roster_scores[i]['team_continuity_3'])*.33))  # weaken the effect of team continuity 3 even more
     
     # Return the evaluated rosters
     return roster_scores 
@@ -75,8 +79,8 @@ def evaluate_position_preference(roster, session_id):
     total_preference = preference_score / player_count
     return total_preference
 
-def evaluate_team_continuity(roster, session_id, exempt_plays_with=False):
-    previous_session = get_previous_session(session_id)
+def evaluate_team_continuity(roster, session_id, exempt_plays_with=False, session_lookback=1):
+    previous_session = get_previous_session(session_id=session_id, session_lookback=session_lookback)
     if previous_session is None:
         return [1.0] * len(roster)  # If no previous session, all teams get a score of 1.0
 

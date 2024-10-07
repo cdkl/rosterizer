@@ -28,11 +28,12 @@ def parse_name(full_name):
     finally:
         return first_name,last_name
 
-def get_previous_session(session_id):
+def get_previous_session(session_id, session_lookback=1):
     """
     Retrieves the previous session object based on the given session.
     Args:
         session (Session): The current session object.
+        session_lookback (int): The number of sessions to look back. Default is 1.
     Returns:
         Session: The previous session object, or None if no previous session exists.
     """
@@ -41,6 +42,14 @@ def get_previous_session(session_id):
     except Session.DoesNotExist:
         raise ValueError(f'Session with id {session_id} does not exist')
     
+    for i in range(session_lookback):
+        session = get_previous_session_internal(session)
+        if session is None:
+            break
+
+    return session
+
+def get_previous_session_internal(session):
     previous_session = None
     previous_sessions = Session.objects.filter(year=session.year, session_number__lt=session.session_number).order_by('session_number')
     if previous_sessions.exists():

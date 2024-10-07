@@ -29,3 +29,23 @@ def test_get_previous_session():
     assert str(get_previous_session(sessions[7].pk)) == str(sessions[6])
     assert str(get_previous_session(sessions[8].pk)) == str(sessions[7])
 
+    assert get_previous_session(sessions[0].pk, 2) is None
+    assert get_previous_session(sessions[1].pk, 2) is None
+    assert str(get_previous_session(sessions[2].pk, 2)) == str(sessions[0])
+    assert str(get_previous_session(sessions[3].pk, 2)) == str(sessions[1])
+    assert str(get_previous_session(sessions[4].pk, 2)) == str(sessions[2])
+    assert str(get_previous_session(sessions[5].pk, 2)) == str(sessions[3])
+    assert str(get_previous_session(sessions[6].pk, 2)) == str(sessions[4])
+    assert str(get_previous_session(sessions[7].pk, 2)) == str(sessions[5])
+    assert str(get_previous_session(sessions[8].pk, 2)) == str(sessions[6])
+
+    assert get_previous_session(sessions[0].pk, 3) is None
+    assert get_previous_session(sessions[1].pk, 3) is None
+    assert get_previous_session(sessions[2].pk, 3) is None
+    assert str(get_previous_session(sessions[3].pk, 3)) == str(sessions[0])
+    assert str(get_previous_session(sessions[4].pk, 3)) == str(sessions[1])
+    assert str(get_previous_session(sessions[5].pk, 3)) == str(sessions[2])
+    assert str(get_previous_session(sessions[6].pk, 3)) == str(sessions[3])
+    assert str(get_previous_session(sessions[7].pk, 3)) == str(sessions[4])
+    assert str(get_previous_session(sessions[8].pk, 3)) == str(sessions[5])
+    

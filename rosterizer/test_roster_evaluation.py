@@ -78,7 +78,7 @@ def mock_player_session(monkeypatch):
     monkeypatch.setattr('rosterizer.models.PlayerSession.objects.filter', mock_filter)
     monkeypatch.setattr('rosterizer.models.PlayerSession.objects.get', lambda pk: MockPlayerSession(pk, 1, MockPlayer(pk), MockTeam(pk)))
     monkeypatch.setattr('rosterizer.models.Team.objects.get', lambda pk: MockTeam(pk))
-    monkeypatch.setattr('rosterizer.roster_evaluation.get_previous_session', lambda session_id: 0 if session_id == 1 else None)
+    monkeypatch.setattr('rosterizer.roster_evaluation.get_previous_session', lambda session_id, session_lookback: 0 if session_id == 1 else None)
     return players_store, MockPlayerSession, MockPlayer, MockTeam
 
 def test_evaluate_completeness_no_players(mock_player_session):
