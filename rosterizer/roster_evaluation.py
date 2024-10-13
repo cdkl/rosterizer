@@ -12,13 +12,15 @@ def evaluate_rosters(rosters, session_id):
         roster_scores[i]['team_continuity_1'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=1)
         roster_scores[i]['team_continuity_2'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=2)
         roster_scores[i]['team_continuity_3'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=3)
+        roster_scores[i]['plays_with_adherence'] = evaluate_plays_with_adherence(roster, session_id)
         roster_scores[i]['score'] = (roster_scores[i]['completeness'] * 
                                      roster_scores[i]['incomplete_teams'] * 
                                      roster_scores[i]['position_preference'] * 
                                      fmean(roster_scores[i]['team_continuity_1']) *
                                      (0.33 + fmean(roster_scores[i]['team_continuity_2'])*.67) * # weaken the effect of team continuity 2
-                                     (0.67 + fmean(roster_scores[i]['team_continuity_3'])*.33))  # weaken the effect of team continuity 3 even more
-    
+                                     (0.67 + fmean(roster_scores[i]['team_continuity_3'])*.33) *  # weaken the effect of team continuity 3 even more
+                                     fmean(roster_scores[i]['plays_with_adherence']))
+
     # Return the evaluated rosters
     return roster_scores 
 
@@ -124,4 +126,21 @@ def evaluate_team_continuity(roster, session_id, exempt_plays_with=False, sessio
 
         team_scores.append(score)
 
+    return team_scores
+
+def evaluate_plays_with_adherence(roster, session_id):
+    # Evaluate the adherence to play with partners in a roster
+    player_sessions = PlayerSession.objects.filter(session_id=session_id)
+    team_scores = []
+    for team in roster:
+        team_score = 1.0
+        for position, player_session_id in team.items():
+            if player_session_id:
+                player_session = player_sessions.get(pk=player_session_id)
+                if player_session.play_with:
+                    # Check if the play with partner is in the team
+                    play_with_partner = next((ps for ps in player_sessions if ps.player.full_name == player_session.play_with), None)
+                    if play_with_partner and play_with_partner.pk not in team.values():
+                        team_score *= 0.5
+        team_scores.append(team_score)
     return team_scores

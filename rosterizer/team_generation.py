@@ -3,16 +3,25 @@
 import logging
 import random
 from django.core import serializers
+
+from rosterizer.roster_evaluation import evaluate_plays_with_adherence
 from .models import PlayerSession, Player, Team
 
 
 # Generate multiple candidate rosters and return them
-def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True):
+def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True, full_play_with_adherence=False):
     rosters = []
     player_sessions_query = PlayerSession.objects.filter(session_id=session_id)
 
     for _ in range(num_rosters):
-        rosters.append(generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with))
+        roster = generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with)
+        if use_play_with and full_play_with_adherence:
+            team_scores = evaluate_plays_with_adherence(roster, session_id)
+            if team_scores.count(1.0) < len(team_scores):
+                logging.warning(f'Full play with adherence not achieved: {team_scores}')
+                continue
+
+        rosters.append(roster)
 
     return rosters
 
@@ -115,7 +124,7 @@ def generate_team_assignments(player_sessions, use_play_with=True):
 
     if len(player_sessions) > 0:
         logging.warning(f'Unable to assign all players to teams: {player_sessions}')
-    
+
     return teams
 
 # Helper function to select a player for a position

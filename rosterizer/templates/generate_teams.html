@@ -38,7 +38,8 @@
     <form id="generate-teams-form" action="{% url 'generate_teams' session.id %}" method="post">
         {% csrf_token %}
         <label>
-            <input type="checkbox" name="use_play_with" value="1"> Use "Play With" data
+            <input type="checkbox" name="use_play_with" checked> Use "Play With" data
+            <input type="checkbox" name="full_play_with_adherence" checked> Full Play With Adherence
         </label>
         <br>
         <label>

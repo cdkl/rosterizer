@@ -18,4 +18,5 @@ urlpatterns = [
     path('session/<int:session_id>/generate_multiple_rosters/', views.generate_multiple_rosters, name='generate_multiple_rosters'),
     path('session/<int:session_id>/roster_review/', views.roster_review, name='roster_review'),
     path('session/<int:session_id>/select_roster/', views.select_roster, name='select_roster'),
+    path("favicon.ico", views.favicon),
 ]

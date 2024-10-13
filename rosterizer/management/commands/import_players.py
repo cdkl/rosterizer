@@ -66,13 +66,15 @@ class ImportPlayersCommand(BaseCommand):
 					}
 				)
 
-				PlayerSession.objects.create(
+				PlayerSession.objects.update_or_create(
 					player=player,
 					session=session,
-					years_curled=years_curled,
-					preferred_position1=preferred_position1,
-					preferred_position2=preferred_position2,
-					play_with=play_with
+					defaults = { 
+						'years_curled': years_curled,
+						'preferred_position1': preferred_position1,
+						'preferred_position2': preferred_position2,
+						'play_with': play_with
+					}
 				)
 
 				self.stdout.write(self.style.SUCCESS(f'Processed player {first_name} {last_name}'))

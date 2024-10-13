@@ -1,11 +1,14 @@
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.files.storage import FileSystemStorage
 from django.contrib import messages
+from django.views.decorators.cache import cache_control
+from django.views.decorators.http import require_GET
 
 from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterCsvCommand
 from rosterizer.utilities import check_player_issues
+from rosterizer_site import settings
 from .forms import SessionForm, PlayerImportForm, RosterImportForm
 from .models import Player, PlayerSession, Session, Team
 from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
@@ -111,8 +114,10 @@ def generate_teams_form(request, session_id):
 def generate_teams(request, session_id):
     if request.method == 'POST':
         use_play_with = request.POST.get('use_play_with', 'on')
+        full_play_with_adherence = request.POST.get('full_play_with_adherence', 'on')
+
         num_rosters = int(request.POST.get('num_rosters', 1))
-        rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with)
+        rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with, full_play_with_adherence)
 
         request.session['generated_rosters'] = rosters
         return redirect('roster_review', session_id=session_id)
@@ -160,3 +165,9 @@ def player_session_detail(request, pk):
         return JsonResponse(data)
     except PlayerSession.DoesNotExist:
         return JsonResponse({'error': 'PlayerSession not found'}, status=404)
+    
+@require_GET
+@cache_control(max_age=60 * 60 * 24, immutable=True, public=True)  # one day
+def favicon(request: HttpRequest) -> HttpResponse:
+    file = (settings.BASE_DIR / "static" / "images" / "rosterizer-64x64.png").open("rb")
+    return FileResponse(file)

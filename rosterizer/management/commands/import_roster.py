@@ -54,13 +54,15 @@ class ImportRosterCsvCommand(BaseCommand):
                 )
 
                 # Create PlayerSession
-                PlayerSession.objects.create(
-                    player=player,
-                    session_id=session_id,
-                    preferred_position1=row['Preferred Position 1'],
-                    preferred_position2=row['Preferred Position 2'],
-                    play_with=row['Play With'],
-                    years_curled=int(row['Years Curled'] or 0)
+                PlayerSession.objects.update_or_create(
+					player=player,
+					session=session,
+					defaults = { 
+						'years_curled': int(row['Years Curled'] or 0),
+						'preferred_position1': row['Preferred Position 1'],
+						'preferred_position2': row['Preferred Position 2'],
+						'play_with': row['Play With']
+					}
                 )
 
                 if kwargs['create_teams']:

@@ -16,8 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from rosterizer.views import favicon
 
 urlpatterns = [
     path('rosterizer/', include('rosterizer.urls')),
+    path("favicon.ico", favicon),
     path('admin/', admin.site.urls),
 ]
