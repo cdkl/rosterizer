@@ -97,15 +97,17 @@ def evaluate_team_continuity(roster, session_id, exempt_plays_with=False, sessio
 
     for team in roster:
         current_team_players = set()
+        current_team_players_all_debug = []
         current_team_players_pk = set()
         for player_session_id in team.values():
             if player_session_id is not None:
+                player = PlayerSession.objects.get(pk=player_session_id).player
+                current_team_players_all_debug.append(player)
                 if exempt_plays_with:
                     # only add the player to the compare list if their play with partner isn't already there -they count only as 1
                     player_session = PlayerSession.objects.get(pk=player_session_id)
-                    if any(player_session.play_with in p.full_name for p in current_team_players):
+                    if player_session.play_with and any(player_session.play_with in p.full_name for p in current_team_players):
                         continue
-                player = PlayerSession.objects.get(pk=player_session_id).player
                 current_team_players.add(player)
                 current_team_players_pk.add(player.pk)
 

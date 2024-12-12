@@ -113,11 +113,12 @@ def generate_teams_form(request, session_id):
 
 def generate_teams(request, session_id):
     if request.method == 'POST':
-        use_play_with = request.POST.get('use_play_with', 'on')
-        full_play_with_adherence = request.POST.get('full_play_with_adherence', 'on')
+        use_play_with = request.POST.get('use_play_with', False)
+        full_play_with_adherence = request.POST.get('full_play_with_adherence', False)
+        full_last_session_uniqueness = request.POST.get('full_last_session_uniqueness', False)
 
         num_rosters = int(request.POST.get('num_rosters', 1))
-        rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with, full_play_with_adherence)
+        rosters = generate_multiple_rosters(session_id, num_rosters, use_play_with, full_play_with_adherence, full_last_session_uniqueness)
 
         request.session['generated_rosters'] = rosters
         return redirect('roster_review', session_id=session_id)

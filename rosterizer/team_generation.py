@@ -4,12 +4,12 @@ import logging
 import random
 from django.core import serializers
 
-from rosterizer.roster_evaluation import evaluate_plays_with_adherence
+from rosterizer.roster_evaluation import evaluate_plays_with_adherence, evaluate_team_continuity
 from .models import PlayerSession, Player, Team
 
 
 # Generate multiple candidate rosters and return them
-def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True, full_play_with_adherence=False):
+def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True, full_play_with_adherence=False, full_last_session_uniqueness=False):
     rosters = []
     player_sessions_query = PlayerSession.objects.filter(session_id=session_id)
 
@@ -19,6 +19,11 @@ def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True, fu
             team_scores = evaluate_plays_with_adherence(roster, session_id)
             if team_scores.count(1.0) < len(team_scores):
                 logging.warning(f'Full play with adherence not achieved: {team_scores}')
+                continue
+        if full_last_session_uniqueness:
+            team_scores = evaluate_team_continuity(roster, session_id, not use_play_with, 1)
+            if team_scores.count(1.0) < len(team_scores):
+                logging.warning(f'Full team uniqueness from last session not achieved: {team_scores}')
                 continue
 
         rosters.append(roster)
