@@ -132,18 +132,24 @@ def create_team(request, session_id):
     if request.method == 'POST':
         form = TeamForm(request.POST)
         if form.is_valid():
-            team = form.save(commit=False)
-            team.session = session
-            
-            # Find the next available team number
-            existing_team_numbers = set(Team.objects.filter(session=session).values_list('team_number', flat=True))
-            team_number = 1
-            while team_number in existing_team_numbers:
-                team_number += 1
-            team.team_number = team_number
-            
-            team.save()
-            return redirect('team_list', session_id=session.id)
+            try:
+                team = form.save(commit=False)
+                team.session = session
+                
+                # Find the next available team number
+                existing_team_numbers = set(Team.objects.filter(session=session).values_list('team_number', flat=True))
+                team_number = 1
+                while team_number in existing_team_numbers:
+                    team_number += 1
+                team.team_number = team_number
+                
+                team.save()
+                messages.success(request, f'Team {team_number} created successfully')
+                return redirect('team_list', session_id=session.id)
+            except Exception as e:
+                messages.error(request, f'Error creating team: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below')
     else:
         form = TeamForm()
     return render(request, 'create_team.html', {'session': session, 'players': players, 'form': form})
