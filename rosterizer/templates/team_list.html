@@ -49,11 +49,10 @@
     </form>
     <form method="post" action="{% url 'generate_teams_form' session.id %}">
         {% csrf_token %}
-        {% if teams %}
-            <button type="submit" disabled>Generate Teams</button>
-        {% else %}
-            <button type="submit">Generate Teams</button>
-        {% endif %}
+        <button type="submit">Generate Teams</button>
+    </form>
+    <form method="get" action="{% url 'create_team' session.id %}">
+        <button type="submit">Create Team Manually</button>
     </form>
     <a href="{% url 'session_list' %}">Back to Session List</a>
 </body>

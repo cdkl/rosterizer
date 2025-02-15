@@ -1,6 +1,8 @@
 # your_app/team_generation.py
 
+from functools import reduce
 import logging
+from operator import mul
 import random
 from django.core import serializers
 
@@ -13,17 +15,19 @@ def generate_multiple_rosters(session_id, num_rosters=10, use_play_with=True, fu
     rosters = []
     player_sessions_query = PlayerSession.objects.filter(session_id=session_id)
 
-    for _ in range(num_rosters):
-        roster = generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with)
+    for i in range(num_rosters):
+        logging.info(f'Generating roster # {i}')
+        roster = generate_team_assignments(list(player_sessions_query), session_id, use_play_with=use_play_with)
         if use_play_with and full_play_with_adherence:
             team_scores = evaluate_plays_with_adherence(roster, session_id)
             if team_scores.count(1.0) < len(team_scores):
                 logging.warning(f'Full play with adherence not achieved: {team_scores}')
                 continue
         if full_last_session_uniqueness:
-            team_scores = evaluate_team_continuity(roster, session_id, not use_play_with, 1)
-            if team_scores.count(1.0) < len(team_scores):
-                logging.warning(f'Full team uniqueness from last session not achieved: {team_scores}')
+            team_scores = evaluate_team_continuity(roster, session_id, use_play_with, 1)
+            total_score = reduce(mul, team_scores)
+            if total_score < 0.4:
+                logging.warning(f'Full team uniqueness from last session not achieved: {total_score} @ {team_scores}')
                 continue
 
         rosters.append(roster)
@@ -36,91 +40,100 @@ def generate_teams_for_session(session_id, use_play_with=True):
     player_sessions_query = PlayerSession.objects.filter(session_id=session_id)
     
     # Calculate the number of teams
-    teams = generate_team_assignments(list(player_sessions_query), use_play_with=use_play_with)
+    teams = generate_team_assignments(list(player_sessions_query), session_id, use_play_with=use_play_with)
 
     # Commit teams to the database
     apply_team_roster(session_id, teams)
     return f"Teams generated for session {session_id} with play with: {use_play_with}"
 
 def apply_team_roster(session_id, teams):
+    # Get existing teams
+    existing_teams = Team.objects.filter(session_id=session_id)
+    existing_team_numbers = {team.team_number for team in existing_teams}
+    
+    # Find the next available team number
     team_number = 1
-    for team in teams:
-        # Create a new Team object
-        new_team = Team()
-        new_team.session_id = session_id
-        new_team.team_number = team_number
+    while team_number in existing_team_numbers:
         team_number += 1
-        skip = PlayerSession.objects.get(pk=team['Skip']) if team['Skip'] else None
-        vice = PlayerSession.objects.get(pk=team['Vice']) if team['Vice'] else None
-        second = PlayerSession.objects.get(pk=team['Second']) if team['Second'] else None
-        lead = PlayerSession.objects.get(pk=team['Lead']) if team['Lead'] else None
 
-        new_team.set_players_from_player_sessions(skip, vice, second, lead)
+    # Convert existing teams to dictionary format for comparison
+    existing_team_dicts = []
+    for team in existing_teams:
+        team_dict = {
+            'Skip': team.skip.playersession_set.get(session_id=session_id).id if team.skip else None,
+            'Vice': team.vice.playersession_set.get(session_id=session_id).id if team.vice else None,
+            'Second': team.second.playersession_set.get(session_id=session_id).id if team.second else None,
+            'Lead': team.lead.playersession_set.get(session_id=session_id).id if team.lead else None
+        }
+        existing_team_dicts.append(team_dict)
 
-        # Save the team to the database
-        new_team.save()
+    # Only create teams that don't already exist
+    for team in teams:
+        if team not in existing_team_dicts:
+            new_team = Team()
+            new_team.session_id = session_id
+            new_team.team_number = team_number
+            team_number += 1
+            
+            skip = PlayerSession.objects.get(pk=team['Skip']) if team['Skip'] else None
+            vice = PlayerSession.objects.get(pk=team['Vice']) if team['Vice'] else None
+            second = PlayerSession.objects.get(pk=team['Second']) if team['Second'] else None
+            lead = PlayerSession.objects.get(pk=team['Lead']) if team['Lead'] else None
+
+            new_team.set_players_from_player_sessions(skip, vice, second, lead)
+            new_team.save()
+            logging.info(f"Created new team {new_team.team_number}")
 
 # Generate team assignments - this function will return a list of teams, each with a skip, vice, second, and lead
 # Internal function
-def generate_team_assignments(player_sessions, use_play_with=True):
-    num_teams = len(player_sessions) // 4
+def generate_team_assignments(player_sessions, session_id, use_play_with=True):
+    # Get existing teams for this session
+    existing_teams = Team.objects.filter(session_id=session_id)
     
-    # Initialize teams
-    teams = [{position: None for position in ['Skip', 'Vice', 'Second', 'Lead']} for _ in range(num_teams)]
-    
-    # Assign skip to teams
-    for team in teams:
-        if team['Skip'] is None:
-            # Select a skip
-            skip = select_player_for_position('Skip', player_sessions)
-            if skip:
-                set_team_player(team, 'Skip', skip, player_sessions)
-                if use_play_with: add_play_with_players_to_team(team, player_sessions)
-                
-        if team['Skip'] is None:
-            logging.warning(f'Unable to assign a skip to team {team}')
-    
-    # Assign vice to teams
-    for team in teams:
-        if team['Vice'] is None:
-            # Select a vice
-            vice = select_player_for_position('Vice', player_sessions)
-            if vice:
-                set_team_player(team, 'Vice', vice, player_sessions)
-                if use_play_with: add_play_with_players_to_team(team, player_sessions)
-        if team['Vice'] is None:
-            logging.warning(f'Unable to assign a vice to team {team}')
-        
-    # Assign second to teams
-    for team in teams:
-        if team['Second'] is None:
-            # Select a second
-            second = select_player_for_position('Second', player_sessions)
-            if second:
-                set_team_player(team, 'Second', second, player_sessions)
-                if use_play_with: add_play_with_players_to_team(team, player_sessions)
-        if team['Second'] is None:
-            logging.warning(f'Unable to assign a second to team {team}')
+    # Convert existing teams to the same dictionary format used for new teams
+    teams = []
+    max_team_number = 0
+    for team in existing_teams:
+        team_dict = {
+            'Skip': team.skip.playersession_set.get(session_id=session_id).id if team.skip else None,
+            'Vice': team.vice.playersession_set.get(session_id=session_id).id if team.vice else None,
+            'Second': team.second.playersession_set.get(session_id=session_id).id if team.second else None,
+            'Lead': team.lead.playersession_set.get(session_id=session_id).id if team.lead else None
+        }
+        teams.append(team_dict)
+        max_team_number = max(max_team_number, team.team_number)
 
-    # Assign lead to teams
+    # Remove players who are already on teams from player_sessions
     for team in teams:
-        if team['Lead'] is None:
-            # Select a lead
-            lead = select_player_for_position('Lead', player_sessions)
-            if lead:
-                set_team_player(team, 'Lead', lead, player_sessions)
-                if use_play_with: add_play_with_players_to_team(team, player_sessions)
-        if team['Lead'] is None:
-            logging.warning(f'Unable to assign a lead to team {team}')
+        for position in ['Skip', 'Vice', 'Second', 'Lead']:
+            if team[position]:
+                player_sessions = [ps for ps in player_sessions if ps.id != team[position]]
 
-    # at this point we should have no more player sessions to assign
+    # Calculate number of additional teams needed
+    remaining_players = len(player_sessions)
+    additional_teams_needed = remaining_players // 4
+
+    # Initialize new teams
+    new_teams = [{position: None for position in ['Skip', 'Vice', 'Second', 'Lead']} 
+                 for _ in range(additional_teams_needed)]
+    teams.extend(new_teams)
+
+    # Rest of the team assignment logic remains similar, but only for unassigned positions
+    for position in ['Skip', 'Vice', 'Second', 'Lead']:
+        for team in teams:
+            if team[position] is None:
+                player = select_player_for_position(position, player_sessions)
+                if player:
+                    set_team_player(team, position, player, player_sessions)
+                    if use_play_with:
+                        add_play_with_players_to_team(team, player_sessions)
+
+    # Handle remaining players as before
     if len(player_sessions) > 0:
         logging.info(f"Players remaining: {player_sessions}, beginning to fill holes in rosters")
-        # Let's fill roster holes. Start with teams with player count of 1:
-        for team_player_count in range (1, 4):
+        for team_player_count in range(1, 4):
             for team in teams:
                 if len(player_sessions) > 0 and sum(team[position] is not None for position in ['Skip', 'Vice', 'Second', 'Lead']) == team_player_count:
-                    # we still have unaffiliated players, and we have a team with a low enough player count to add.
                     player_session = random.choice(player_sessions)
                     for position in ['Lead', 'Second', 'Vice', 'Skip']:
                         if team[position] is None:

@@ -1,5 +1,5 @@
 from statistics import fmean
-from rosterizer.models import PlayerSession, Team
+from rosterizer.models import Player, PlayerSession, Session, Team
 from .utilities import get_previous_session
 
 def evaluate_rosters(rosters, session_id):
@@ -82,6 +82,7 @@ def evaluate_position_preference(roster, session_id):
     return total_preference
 
 def evaluate_team_continuity(roster, session_id, exempt_plays_with=False, session_lookback=1):
+    current_session = Session.objects.get(pk=session_id)
     previous_session = get_previous_session(session_id=session_id, session_lookback=session_lookback)
     if previous_session is None:
         return [1.0] * len(roster)  # If no previous session, all teams get a score of 1.0
@@ -103,17 +104,20 @@ def evaluate_team_continuity(roster, session_id, exempt_plays_with=False, sessio
             if player_session_id is not None:
                 player = PlayerSession.objects.get(pk=player_session_id).player
                 current_team_players_all_debug.append(player)
-                if exempt_plays_with:
-                    # only add the player to the compare list if their play with partner isn't already there -they count only as 1
-                    player_session = PlayerSession.objects.get(pk=player_session_id)
-                    if player_session.play_with and any(player_session.play_with in p.full_name for p in current_team_players):
-                        continue
+                # if exempt_plays_with:
+                #     # only add the player to the compare list if their play with partner isn't already there -they count only as 1
+                #     player_session = PlayerSession.objects.get(pk=player_session_id)
+                #     if player_session.play_with and any(player_session.play_with in p.full_name for p in current_team_players):
+                #         continue
                 current_team_players.add(player)
                 current_team_players_pk.add(player.pk)
 
         max_players_together = 0
         for previous_team_players_pk in previous_teams_pk:
-            players_together = len(current_team_players_pk & previous_team_players_pk)
+            common_players = current_team_players_pk & previous_team_players_pk
+            players_together = len(common_players)
+            if exempt_plays_with and players_together == 2 and PlayerSession.objects.get(player=Player.objects.get(pk=common_players.pop()), session=current_session).play_with == Player.objects.get(pk=common_players.pop()).full_name:
+                players_together = 1
             if players_together > max_players_together:
                 max_players_together = players_together
 

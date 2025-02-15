@@ -9,7 +9,7 @@ from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterCsvCommand
 from rosterizer.utilities import check_player_issues
 from rosterizer_site import settings
-from .forms import SessionForm, PlayerImportForm, RosterImportForm
+from .forms import SessionForm, PlayerImportForm, RosterImportForm, TeamForm
 from .models import Player, PlayerSession, Session, Team
 from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
 from .roster_evaluation import evaluate_rosters
@@ -124,6 +124,48 @@ def generate_teams(request, session_id):
         return redirect('roster_review', session_id=session_id)
     else:
         return redirect('session_list')
+
+def create_team(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+    player_sessions = PlayerSession.objects.filter(session=session).select_related('player')
+    players = [ps.player for ps in player_sessions]
+    if request.method == 'POST':
+        form = TeamForm(request.POST)
+        if form.is_valid():
+            team = form.save(commit=False)
+            team.session = session
+            
+            # Find the next available team number
+            existing_team_numbers = set(Team.objects.filter(session=session).values_list('team_number', flat=True))
+            team_number = 1
+            while team_number in existing_team_numbers:
+                team_number += 1
+            team.team_number = team_number
+            
+            team.save()
+            return redirect('team_list', session_id=session.id)
+    else:
+        form = TeamForm()
+    return render(request, 'create_team.html', {'session': session, 'players': players, 'form': form})
+
+def save_team(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+    if request.method == 'POST':
+        form = TeamForm(request.POST)
+        if form.is_valid():
+            team = form.save(commit=False)
+            team.session = session
+            
+            # Find the next available team number
+            existing_team_numbers = set(Team.objects.filter(session=session).values_list('team_number', flat=True))
+            team_number = 1
+            while team_number in existing_team_numbers:
+                team_number += 1
+            team.team_number = team_number
+            
+            team.save()
+            return redirect('team_list', session_id=session.id)
+    return redirect('create_team', session_id=session.id)
 
 def roster_review(request, session_id):
     rosters = request.session.get('generated_rosters', [])

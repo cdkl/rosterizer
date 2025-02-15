@@ -1,5 +1,5 @@
 from django import forms
-from .models import Session
+from .models import Session, Team
 
 class SessionForm(forms.ModelForm):
 	class Meta:
@@ -11,3 +11,8 @@ class PlayerImportForm(forms.Form):
 
 class RosterImportForm(forms.Form):
     roster_file = forms.FileField(label='Select a roster file')
+
+class TeamForm(forms.ModelForm):
+    class Meta:
+        model = Team
+        fields = ['skip', 'vice', 'second', 'lead']
