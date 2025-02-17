@@ -138,10 +138,20 @@ def test_evaluate_incomplete_teams_no_incomplete_teams(mock_player_session):
     session_id = 1
     assert evaluate_incomplete_teams(roster, session_id) == 1.0
 
-def test_evaluate_team_continuity_no_previous_session(mock_player_session):
-    players_store, _, _, _ = mock_player_session
-    players_store['current'] = [mock_player_session[1](1, 0, mock_player_session[2](1), mock_player_session[3](1)), 
-                                mock_player_session[1](2, 0, mock_player_session[2](2), mock_player_session[3](2))]
+def test_evaluate_team_continuity_no_previous_session(mock_player_session, monkeypatch):
+    players_store, MockPlayerSession, MockPlayer, MockTeam = mock_player_session
+    players_store['current'] = [MockPlayerSession(1, 0, MockPlayer(1), MockTeam(1)), 
+                                MockPlayerSession(2, 0, MockPlayer(2), MockTeam(2))]
+
+    def mock_get_previous_session(session_id, session_lookback):
+        return None
+
+    def mock_get_current_session(session_id):
+        return 0 if session_id == 0 else None
+    
+    monkeypatch.setattr('rosterizer.roster_evaluation.get_previous_session', mock_get_previous_session)
+    monkeypatch.setattr('rosterizer.roster_evaluation.get_current_session', mock_get_current_session)
+
     roster = [{'Skip': 1, 'Vice': 2, 'Second': None, 'Lead': None}]
     session_id = 0
     assert evaluate_team_continuity(roster, session_id) == [1.0]

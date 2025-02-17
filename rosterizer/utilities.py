@@ -28,6 +28,23 @@ def parse_name(full_name):
     finally:
         return first_name,last_name
 
+def get_current_session(session_id):
+    """
+    Retrieves the current session object based on the given session.
+
+    This utility function is intended to make patching out for unit tests easier.
+
+    Args:
+        session_id (int): The session id.
+    Returns:
+        Session: The current session object, or None if no current session exists.
+    """
+    try:
+        session = Session.objects.get(pk=session_id)
+    except Session.DoesNotExist:
+        raise ValueError(f'Session with id {session_id} does not exist')
+    return session
+
 def get_previous_session(session_id, session_lookback=1):
     """
     Retrieves the previous session object based on the given session.

@@ -1,6 +1,6 @@
 from statistics import fmean
 from rosterizer.models import Player, PlayerSession, Session, Team
-from .utilities import get_previous_session
+from .utilities import get_previous_session, get_current_session
 
 def evaluate_rosters(rosters, session_id):
     # Calculate a score for each roster
@@ -82,7 +82,7 @@ def evaluate_position_preference(roster, session_id):
     return total_preference
 
 def evaluate_team_continuity(roster, session_id, exempt_plays_with=False, session_lookback=1):
-    current_session = Session.objects.get(pk=session_id)
+    current_session = get_current_session(session_id=session_id)
     previous_session = get_previous_session(session_id=session_id, session_lookback=session_lookback)
     if previous_session is None:
         return [1.0] * len(roster)  # If no previous session, all teams get a score of 1.0

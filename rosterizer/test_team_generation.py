@@ -64,7 +64,7 @@ def test_roster_serialization(players, player_sessions_rich, session):
     session.save()
     for ps in player_sessions_rich: ps.save()
 
-    rosters = generate_team_assignments(player_sessions_rich)
+    rosters = generate_team_assignments(player_sessions_rich, session.id)
     rosters_json = json.dumps(rosters)
       #serializers.serialize('json', rosters)
 
@@ -116,7 +116,7 @@ def test_generate_team_assignments(players, player_sessions_sparse, session):
     for ps in player_sessions_sparse: ps.save()
 
     player_sessions = player_sessions_sparse.copy()
-    teams = generate_team_assignments(player_sessions, False)
+    teams = generate_team_assignments(player_sessions, session.id, False)
     assert len(teams) == 2
     assert teams[0]['Skip'] == player_sessions_sparse[0].pk
     assert teams[0]['Vice'] == player_sessions_sparse[1].pk
@@ -153,7 +153,7 @@ def test_generate_team_assignments_with_missing_preferences(players, player_sess
     for ps in player_sessions_missing_preferences: ps.save()
 
     player_sessions = player_sessions_missing_preferences.copy()
-    teams = generate_team_assignments(player_sessions, False)
+    teams = generate_team_assignments(player_sessions, session.id, False)
     assert len(teams) == 2
     assert teams[0]['Skip'] == player_sessions_missing_preferences[0].pk
     assert teams[0]['Vice'] == player_sessions_missing_preferences[1].pk
@@ -166,7 +166,7 @@ def test_generate_team_assignments_with_missing_preferences(players, player_sess
     assert player_sessions == []
 
     player_sessions = player_sessions_missing_preferences.copy()
-    teams = generate_team_assignments(player_sessions, True)
+    teams = generate_team_assignments(player_sessions, session.id, True)
     assert len(teams) == 2
     assert teams[0]['Skip'] == player_sessions_missing_preferences[0].pk
     assert teams[0]['Vice'] == player_sessions_missing_preferences[1].pk
