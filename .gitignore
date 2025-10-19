@@ -4,3 +4,5 @@ my.cnf
 db.sqlite3
 TestImport*
 TestRoster*
+.env
+

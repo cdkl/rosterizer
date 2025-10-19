@@ -12,22 +12,28 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Look and see if we've got a secret key - if not we'll load .env ourselves (local dev env)
+if not os.getenv("DJANGO_SECRET_KEY"):
+    logging.warning("No DJANGO_SECRET_KEY found in environment, loading from .env")
+    from dotenv import load_dotenv
+    load_dotenv()
+    if not os.getenv("DJANGO_SECRET_KEY"):
+        logging.error("No DJANGO_SECRET_KEY found in .env, good luck")
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ai)k&=b*6s@7$!i33^+82v_#cztcqq1)9nc1o*46_v!hqm4(g$'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
+DEBUG = (os.environ.get('DEBUG') == "True")
+ 
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS","127.0.0.1").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS","https://127.0.0.1").split(",")
 
 # Application definition
 
@@ -77,15 +83,12 @@ WSGI_APPLICATION = 'rosterizer_site.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-#        'NAME': 'rosterizer-mysql',
-#        'USER': 'rosterizer',
-#        'PASSWORD': 'rosterizer',
-#        'HOST': 'lorez.localdomain',
-#        'PORT': '23306',
-        'OPTIONS': {
-            'read_default_file': 'my.cnf',
-        },
+        'ENGINE': os.environ.get('DATABASE_ENGINE'),
+        'NAME': os.environ.get('DATABASE_NAME'),
+        'USER': os.environ.get('DATABASE_USER'),
+        'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
+        'HOST': os.environ.get('DATABASE_HOST'), # For local development, use 'localhost' or '127.0.0.1'
+        'PORT': os.environ.get('DATABASE_PORT'), # Default PostgreSQL port is usually '5432'
     }
 }
 
@@ -119,13 +122,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
-# The secret key
-SECRET_KEY = os.environ.get("SECRET_KEY")
- 
-DEBUG = bool(os.environ.get("DEBUG", default=0))
- 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS","127.0.0.1").split(",")
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

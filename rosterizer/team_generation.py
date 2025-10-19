@@ -111,23 +111,39 @@ def generate_team_assignments(player_sessions, session_id, use_play_with=True):
 
     # Calculate number of additional teams needed
     remaining_players = len(player_sessions)
-    additional_teams_needed = remaining_players // 4
+    # Use ceiling division to ensure we create enough teams for all players
+    # This handles cases where players don't divide evenly by 4
+    additional_teams_needed = (remaining_players + 3) // 4
 
     # Initialize new teams
     new_teams = [{position: None for position in ['Skip', 'Vice', 'Second', 'Lead']} 
                  for _ in range(additional_teams_needed)]
     teams.extend(new_teams)
 
-    # Rest of the team assignment logic remains similar, but only for unassigned positions
+    # Calculate how many Lead positions should remain empty to ensure minimum 3 players per team
+    total_teams = len(teams)
+    reserved_empty_leads = set()
+    if remaining_players < total_teams * 4:
+        players_short = (total_teams * 4) - remaining_players
+        # Mark which teams should have empty Lead positions
+        for i in range(players_short):
+            team_index = total_teams - 1 - i
+            if team_index >= 0:
+                reserved_empty_leads.add(team_index)
+
+    # Fill teams by position - all skips first, then all vices, etc.
+    # This ensures better position distribution across teams
     for position in ['Skip', 'Vice', 'Second', 'Lead']:
-        for team in teams:
+        for team_index, team in enumerate(teams):
+            # Skip filling Lead position if it's reserved to stay empty
+            if position == 'Lead' and team_index in reserved_empty_leads:
+                continue
             if team[position] is None:
                 player = select_player_for_position(position, player_sessions)
                 if player:
                     set_team_player(team, position, player, player_sessions)
                     if use_play_with:
                         add_play_with_players_to_team(team, player_sessions)
-
     # Handle remaining players as before
     if len(player_sessions) > 0:
         logging.info(f"Players remaining: {player_sessions}, beginning to fill holes in rosters")
