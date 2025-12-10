@@ -1,50 +1,44 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Create Team</title>
-        <meta charset="utf-8">
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    </head>
-    <body>
-        <div class="container">
-            <h1>Create Team for Session {{ session.year }} - {{ session.session_number }}</h1>
-            <form method="post" action="{% url 'save_team' session.id %}">
-                {% csrf_token %}
-                <div class="mb-3">
-                    <label for="skip" class="form-label">Skip</label>
-                    <select class="form-select" id="skip" name="skip" required>
-                        {% for player in players %}
-                        <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="vice" class="form-label">Vice</label>
-                    <select class="form-select" id="vice" name="vice" required>
-                        {% for player in players %}
-                        <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="second" class="form-label">Second</label>
-                    <select class="form-select" id="second" name="second" required>
-                        {% for player in players %}
-                        <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="lead" class="form-label">Lead</label>
-                    <select class="form-select" id="lead" name="lead" required>
-                        {% for player in players %}
-                        <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Save Team</button>
-            </form>
-            <a href="{% url 'team_list' session.id %}" class="btn btn-secondary mt-3">Back to Team List</a>
-        </div>
-    </body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Create Team{% endblock %}
+
+{% block content %}
+<h1>Create Team for Session {{ session.year }} - {{ session.session_number }}</h1>
+<form method="post" action="{% url 'save_team' session.id %}">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="skip" class="form-label">Skip</label>
+        <select class="form-select" id="skip" name="skip" required>
+            {% for player in players %}
+            <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="vice" class="form-label">Vice</label>
+        <select class="form-select" id="vice" name="vice" required>
+            {% for player in players %}
+            <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="second" class="form-label">Second</label>
+        <select class="form-select" id="second" name="second" required>
+            {% for player in players %}
+            <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="lead" class="form-label">Lead</label>
+        <select class="form-select" id="lead" name="lead" required>
+            {% for player in players %}
+            <option value="{{ player.id }}">{{ player.first_name }} {{ player.last_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Team</button>
+</form>
+<a href="{% url 'team_list' session.id %}" class="btn btn-secondary mt-3">Back to Team List</a>
+{% endblock %}

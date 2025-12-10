@@ -1,15 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Import Roster</title>
-</head>
-<body>
-    <h1>Import Roster for {{ session }}</h1>
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Import</button>
-    </form>
-    <a href="{% url 'session_list' %}">Back to Session List</a>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Import Roster{% endblock %}
+
+{% block content %}
+<h1>Import Roster for {{ session }}</h1>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Import</button>
+</form>
+<a href="{% url 'session_list' %}" class="btn btn-secondary mt-3">Back to Session List</a>
+{% endblock %}

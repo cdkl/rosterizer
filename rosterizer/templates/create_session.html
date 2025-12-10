@@ -1,14 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-	<title>Create Session</title>
-</head>
-<body>
-	<h1>Create Session</h1>
-	<form method="post">
-		{% csrf_token %}
-		{{ form.as_p }}
-		<button type="submit">Save</button>
-	</form>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Create Session{% endblock %}
+
+{% block content %}
+<h1>Create Session</h1>
+<form method="post">
+	{% csrf_token %}
+	{{ form.as_p }}
+	<button type="submit" class="btn btn-primary">Save</button>
+	<a href="{% url 'index' %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

@@ -1,74 +1,67 @@
-<!-- templates/roster_review.html -->
+{% extends 'base.html' %}
 
+{% block title %}Review Rosters{% endblock %}
 
+{% block extra_head %}
+<script>
+     $(document).ready( function () {
+        $('#roster-table').DataTable();
+     } );
+</script>
+{% endblock %}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Review Rosters</title>
-    <link rel="stylesheet" href="https://cdn.datatables.net/2.1.6/css/dataTables.dataTables.css" />
-    <script type="text/javascript" src="https://code.jquery.com/jquery-3.7.1.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <script src="https://cdn.datatables.net/2.1.6/js/dataTables.js"></script>
-    <script>
-         $(document).ready( function () {
-            $('#roster-table').DataTable();
-         } );
-    </script>
-</head>
-
-<body>
-    <h1>Review and Select a Roster</h1>
-    <form action="{% url 'select_roster' session_id %}" method="post">
-        {% csrf_token %}
-        <table id="roster-table", class="display">
-            <thead>
+{% block content %}
+<h1>Review and Select a Roster</h1>
+<form action="{% url 'select_roster' session_id %}" method="post">
+    {% csrf_token %}
+    <table id="roster-table" class="table table-striped">
+        <thead>
+            <tr>
+                <th>Select</th>
+                <th>Roster</th>
+                <th>Score</th>
+                <th>Players Assigned</th>
+                <th>Incomplete Teams</th>
+                <th>Position Preference</th>
+                <th>Team Uniqueness (1)</th>
+                <th>Team Uniqueness (2)</th>
+                <th>Team Uniqueness (3)</th>
+                <th>Plays With Adherence</th>
+                <th>Teams</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for roster, roster_score in rosters %}
                 <tr>
-                    <th>Select</th>
-                    <th>Roster</th>
-                    <th>Score</th>
-                    <th>Players Assigned</th>
-                    <th>Incomplete Teams</th>
-                    <th>Position Preference</th>
-                    <th>Team Uniqueness (1)</th>
-                    <th>Team Uniqueness (2)</th>
-                    <th>Team Uniqueness (3)</th>
-                    <th>Plays With Adherence</th>
-                    <th>Teams</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for roster, roster_score in rosters %}
-                    <tr>
-                        <td>
-                            <label>
-                                <input type="radio" name="selected_roster" value="{{ forloop.counter0 }}"> Select this roster
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="selected_roster" id="roster-{{ forloop.counter0 }}" value="{{ forloop.counter0 }}">
+                            <label class="form-check-label" for="roster-{{ forloop.counter0 }}">
+                                Select
                             </label>
-                        </td>
-                        <td>Roster {{ forloop.counter }}</td>
-                        <td>{{ roster_score.score }}</td>
-                        <td>{{ roster_score.completeness }}</td>
-                        <td>{{ roster_score.incomplete_teams }}</td>
-                        <td>{{ roster_score.position_preference }}</td>
-                        <td>{{ roster_score.team_continuity_1 }}</td>
-                        <td>{{ roster_score.team_continuity_2 }}</td>
-                        <td>{{ roster_score.team_continuity_3 }}</td>
-                        <td>{{ roster_score.plays_with_adherence }}</td>
-                        <td>
-                            {% for team in roster %}
-                            {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }} /
-                            {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }} /
-                            {{ team.Second.player.first_name }} {{ team.Second.player.last_name }} /
-                            {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }} <br>
-                            {% endfor %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <button type="submit">Submit</button>
-
-    </form>
-</body>
-</html>
+                        </div>
+                    </td>
+                    <td>Roster {{ forloop.counter }}</td>
+                    <td>{{ roster_score.score }}</td>
+                    <td>{{ roster_score.completeness }}</td>
+                    <td>{{ roster_score.incomplete_teams }}</td>
+                    <td>{{ roster_score.position_preference }}</td>
+                    <td>{{ roster_score.team_continuity_1 }}</td>
+                    <td>{{ roster_score.team_continuity_2 }}</td>
+                    <td>{{ roster_score.team_continuity_3 }}</td>
+                    <td>{{ roster_score.plays_with_adherence }}</td>
+                    <td>
+                        {% for team in roster %}
+                        {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }} /
+                        {{ team.Vice.player.first_name }} {{ team.Vice.player.last_name }} /
+                        {{ team.Second.player.first_name }} {{ team.Second.player.last_name }} /
+                        {{ team.Lead.player.first_name }} {{ team.Lead.player.last_name }} <br>
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary mt-3">Submit</button>
+</form>
+{% endblock %}

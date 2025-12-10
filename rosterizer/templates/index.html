@@ -1,12 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Index</title>
-</head>
-<body>
-    <h1>Welcome to the Rosterizer</h1>
-    <a href="{% url 'create_session' %}">Create Session</a>
-    <a href="{% url 'session_list' %}">View Sessions</a>
-    <a href="{% url 'player_list' %}">View Player List</a>
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Rosterizer - Home{% endblock %}
+
+{% block content %}
+<h1>Welcome to the Rosterizer</h1>
+<div class="mt-3">
+    <a href="{% url 'create_session' %}" class="btn btn-primary me-2">Create Session</a>
+    <a href="{% url 'session_list' %}" class="btn btn-secondary me-2">View Sessions</a>
+    <a href="{% url 'player_list' %}" class="btn btn-secondary">View Player List</a>
+</div>
+{% endblock %}
