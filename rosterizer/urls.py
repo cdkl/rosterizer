@@ -21,5 +21,8 @@ urlpatterns = [
     path('session/<int:session_id>/generate_multiple_rosters/', views.generate_multiple_rosters, name='generate_multiple_rosters'),
     path('session/<int:session_id>/roster_review/', views.roster_review, name='roster_review'),
     path('session/<int:session_id>/select_roster/', views.select_roster, name='select_roster'),
+    path('rules/', views.rule_list, name='rule_list'),
+    path('rules/create/', views.create_rule, name='create_rule'),
+    path('rules/<int:rule_id>/delete/', views.delete_rule, name='delete_rule'),
     path("favicon.ico", views.favicon),
 ]

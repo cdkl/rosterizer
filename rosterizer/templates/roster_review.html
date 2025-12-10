@@ -27,6 +27,7 @@
                 <th>Team Uniqueness (2)</th>
                 <th>Team Uniqueness (3)</th>
                 <th>Plays With Adherence</th>
+                <th>Player Rules</th>
                 <th>Teams</th>
             </tr>
         </thead>
@@ -50,6 +51,7 @@
                     <td>{{ roster_score.team_continuity_2 }}</td>
                     <td>{{ roster_score.team_continuity_3 }}</td>
                     <td>{{ roster_score.plays_with_adherence }}</td>
+                    <td>{{ roster_score.player_rules }}</td>
                     <td>
                         {% for team in roster %}
                         {{ team.Skip.player.first_name }} {{ team.Skip.player.last_name }} /

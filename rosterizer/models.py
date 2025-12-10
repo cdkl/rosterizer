@@ -95,3 +95,23 @@ class Team(models.Model):
         if self.lead:
             players.append(self.lead)
         return players
+
+class PlayerRule(models.Model):
+    RULE_TYPE_CHOICES = [
+        ('never_together', 'Never Together'),
+        ('must_be_together', 'Must Be Together'),
+    ]
+    
+    rule_type = models.CharField(max_length=20, choices=RULE_TYPE_CHOICES)
+    player1 = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='rules_as_player1')
+    player2 = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='rules_as_player2')
+    weight = models.FloatField(default=1.0)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = [['rule_type', 'player1', 'player2']]
+    
+    def __str__(self):
+        return f"{self.player1.full_name} and {self.player2.full_name} - {self.get_rule_type_display()}"

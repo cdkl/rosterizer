@@ -1,5 +1,5 @@
 from django import forms
-from .models import Session, Team
+from .models import Session, Team, PlayerRule
 
 class SessionForm(forms.ModelForm):
 	class Meta:
@@ -16,3 +16,11 @@ class TeamForm(forms.ModelForm):
     class Meta:
         model = Team
         fields = ['skip', 'vice', 'second', 'lead']
+
+class PlayerRuleForm(forms.ModelForm):
+    class Meta:
+        model = PlayerRule
+        fields = ['rule_type', 'player1', 'player2', 'weight', 'notes']
+        widgets = {
+            'notes': forms.Textarea(attrs={'rows': 3}),
+        }

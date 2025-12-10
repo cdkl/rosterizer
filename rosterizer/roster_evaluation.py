@@ -1,5 +1,5 @@
 from statistics import fmean
-from rosterizer.models import Player, PlayerSession, Session, Team
+from rosterizer.models import Player, PlayerSession, Session, Team, PlayerRule
 from .utilities import get_previous_session, get_current_session
 
 def evaluate_rosters(rosters, session_id):
@@ -13,16 +13,18 @@ def evaluate_rosters(rosters, session_id):
         roster_scores[i]['team_continuity_2'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=2)
         roster_scores[i]['team_continuity_3'] = evaluate_team_continuity(roster, session_id, exempt_plays_with=True, session_lookback=3)
         roster_scores[i]['plays_with_adherence'] = evaluate_plays_with_adherence(roster, session_id)
+        roster_scores[i]['player_rules'] = evaluate_player_rules(roster, session_id)
         roster_scores[i]['score'] = (roster_scores[i]['completeness'] * 
                                      roster_scores[i]['incomplete_teams'] * 
                                      roster_scores[i]['position_preference'] * 
                                      fmean(roster_scores[i]['team_continuity_1']) *
                                      (0.33 + fmean(roster_scores[i]['team_continuity_2'])*.67) * # weaken the effect of team continuity 2
                                      (0.67 + fmean(roster_scores[i]['team_continuity_3'])*.33) *  # weaken the effect of team continuity 3 even more
-                                     fmean(roster_scores[i]['plays_with_adherence']))
+                                     fmean(roster_scores[i]['plays_with_adherence']) *
+                                     fmean(roster_scores[i]['player_rules']))
 
     # Return the evaluated rosters
-    return roster_scores 
+    return roster_scores
 
 def evaluate_completeness(roster, session_id):
     # Evaluate the completeness of a roster
@@ -149,4 +151,38 @@ def evaluate_plays_with_adherence(roster, session_id):
                     if play_with_partner and play_with_partner.pk not in team.values():
                         team_score *= 0.5
         team_scores.append(team_score)
+    return team_scores
+
+def evaluate_player_rules(roster, session_id):
+    # Evaluate custom player rules (e.g., never_together)
+    player_rules = PlayerRule.objects.all()
+    player_sessions = PlayerSession.objects.filter(session_id=session_id)
+    team_scores = []
+    
+    for team in roster:
+        team_score = 1.0
+        # Get player IDs on this team
+        team_player_ids = set()
+        for player_session_id in team.values():
+            if player_session_id:
+                player_session = player_sessions.get(pk=player_session_id)
+                team_player_ids.add(player_session.player.id)
+        
+        # Check all rules
+        for rule in player_rules:
+            # Check if both players in the rule are on this team
+            if rule.player1.id in team_player_ids and rule.player2.id in team_player_ids:
+                if rule.rule_type == 'never_together':
+                    # Apply penalty for violation
+                    team_score *= (1.0 - rule.weight)
+                elif rule.rule_type == 'must_be_together':
+                    # No penalty - rule is satisfied
+                    pass
+            elif rule.rule_type == 'must_be_together':
+                # Only one or neither player is on the team - penalty
+                if rule.player1.id in team_player_ids or rule.player2.id in team_player_ids:
+                    team_score *= (1.0 - rule.weight)
+        
+        team_scores.append(team_score)
+    
     return team_scores

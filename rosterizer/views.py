@@ -9,8 +9,8 @@ from rosterizer.management.commands.import_players import ImportPlayersCommand
 from rosterizer.management.commands.import_roster import ImportRosterCsvCommand
 from rosterizer.utilities import check_player_issues
 from rosterizer_site import settings
-from .forms import SessionForm, PlayerImportForm, RosterImportForm, TeamForm
-from .models import Player, PlayerSession, Session, Team
+from .forms import SessionForm, PlayerImportForm, RosterImportForm, TeamForm, PlayerRuleForm
+from .models import Player, PlayerSession, Session, Team, PlayerRule
 from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
 from .roster_evaluation import evaluate_rosters
 
@@ -220,3 +220,31 @@ def player_session_detail(request, pk):
 def favicon(request: HttpRequest) -> HttpResponse:
     file = (settings.BASE_DIR / "static" / "images" / "rosterizer-64x64.png").open("rb")
     return FileResponse(file)
+
+def rule_list(request):
+    rules = PlayerRule.objects.all().select_related('player1', 'player2')
+    return render(request, 'rule_list.html', {'rules': rules})
+
+def create_rule(request):
+    if request.method == 'POST':
+        form = PlayerRuleForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                messages.success(request, 'Player rule created successfully')
+                return redirect('rule_list')
+            except Exception as e:
+                messages.error(request, f'Error creating rule: {str(e)}')
+        else:
+            messages.error(request, 'Please correct the errors below')
+    else:
+        form = PlayerRuleForm()
+    return render(request, 'create_rule.html', {'form': form})
+
+def delete_rule(request, rule_id):
+    rule = get_object_or_404(PlayerRule, id=rule_id)
+    if request.method == 'POST':
+        rule.delete()
+        messages.success(request, 'Player rule deleted successfully')
+        return redirect('rule_list')
+    return render(request, 'delete_rule.html', {'rule': rule})
