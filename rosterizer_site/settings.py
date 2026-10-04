@@ -17,13 +17,12 @@ import logging
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Look and see if we've got a secret key - if not we'll load .env ourselves (local dev env)
+# Load environment variables from .env file (if it exists)
+from dotenv import load_dotenv
+load_dotenv()
+
 if not os.getenv("DJANGO_SECRET_KEY"):
-    logging.warning("No DJANGO_SECRET_KEY found in environment, loading from .env")
-    from dotenv import load_dotenv
-    load_dotenv()
-    if not os.getenv("DJANGO_SECRET_KEY"):
-        logging.error("No DJANGO_SECRET_KEY found in .env, good luck")
+    logging.error("No DJANGO_SECRET_KEY found. Set it in .env or export it as an environment variable.")
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -81,16 +80,26 @@ WSGI_APPLICATION = 'rosterizer_site.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': os.environ.get('DATABASE_ENGINE'),
-        'NAME': os.environ.get('DATABASE_NAME'),
-        'USER': os.environ.get('DATABASE_USER'),
-        'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
-        'HOST': os.environ.get('DATABASE_HOST'), # For local development, use 'localhost' or '127.0.0.1'
-        'PORT': os.environ.get('DATABASE_PORT'), # Default PostgreSQL port is usually '5432'
+# Use SQLite for local development/testing when DATABASE_NAME is not set
+_database_name = os.environ.get('DATABASE_NAME')
+if _database_name:
+    DATABASES = {
+        'default': {
+            'ENGINE': os.environ.get('DATABASE_ENGINE'),
+            'NAME': _database_name,
+            'USER': os.environ.get('DATABASE_USER'),
+            'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
+            'HOST': os.environ.get('DATABASE_HOST'),
+            'PORT': os.environ.get('DATABASE_PORT'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
