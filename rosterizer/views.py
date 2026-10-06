@@ -10,7 +10,7 @@ from rosterizer.management.commands.import_roster import ImportRosterCsvCommand
 from rosterizer.utilities import check_player_issues
 from rosterizer_site import settings
 from .forms import SessionForm, PlayerImportForm, RosterImportForm, TeamForm, PlayerRuleForm
-from .models import Player, PlayerSession, Session, Team, PlayerRule
+from .models import Player, PlayerSession, Session, Team, PlayerRule, TeamResult
 from .team_generation import apply_team_roster, generate_multiple_rosters, generate_teams_for_session, hydrate_rosters
 from .roster_evaluation import evaluate_rosters
 
@@ -34,6 +34,14 @@ def index(request):
 def delete_session(request, session_id):
     session = get_object_or_404(Session, id=session_id)
     if request.method == 'POST':
+        # Results are manually entered and cannot be reconstructed, so a session
+        # that has them is protected rather than silently losing its history.
+        if TeamResult.objects.filter(session=session).exists():
+            messages.error(
+                request,
+                f'Session {session} has recorded results and cannot be deleted. '
+                'Remove those results first if you are sure.')
+            return redirect('session_list')
         session.delete()
         return redirect('session_list')
     return render(request, 'delete_session.html', {'session': session})
@@ -73,6 +81,19 @@ def player_list(request):
 
 def clear_player_list(request):
     if request.method == 'POST':
+        # Players named in recorded results anchor historical strength ratings,
+        # so bulk deletion is blocked while any result references them.
+        recorded = TeamResult.objects.filter(
+            skip__isnull=False) | TeamResult.objects.filter(
+            vice__isnull=False) | TeamResult.objects.filter(
+            second__isnull=False) | TeamResult.objects.filter(
+            lead__isnull=False)
+        if recorded.exists():
+            messages.error(
+                request,
+                'Players appear in recorded results and cannot be deleted. '
+                'Clear the recorded results first.')
+            return redirect('player_list')
         Player.objects.all().delete()
         # messages.success(request, 'All players have been cleared.')
         return redirect('player_list')  # Adjust the redirect as needed
@@ -203,8 +224,22 @@ def team_list(request, session_id):
 
 def clear_teams(request, session_id):
     session = get_object_or_404(Session, pk=session_id)
+    if request.method == 'POST':
+        # Clearing teams does not endanger results -- they keep their own copy
+        # of the roster -- but the convenor should know the live view of that
+        # session is about to change.
+        if TeamResult.objects.filter(session=session).exists() and not \
+                request.POST.get('confirmed'):
+            return render(request, 'confirm_clear_teams.html',
+                          {'session': session, 'has_results': True})
+        Team.objects.filter(session=session).delete()
+        session.results_committed = False
+        session.save(update_fields=['results_committed'])
+        return redirect('team_list', session_id=session_id)
+    if TeamResult.objects.filter(session=session).exists():
+        return render(request, 'confirm_clear_teams.html',
+                      {'session': session, 'has_results': True})
     Team.objects.filter(session=session).delete()
-    # messages.success(request, 'Teams have been cleared successfully')
     return redirect('team_list', session_id=session_id)
 
 def player_session_detail(request, pk):

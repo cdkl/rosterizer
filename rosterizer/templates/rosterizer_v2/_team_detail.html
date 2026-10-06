@@ -1,0 +1,18 @@
+<table class="table table-sm table-striped mb-0">
+    <thead>
+        <tr>
+            <th>Team</th>
+            {% for position in positions %}<th>{{ position }}</th>{% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for team in teams %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            {% for player in team %}
+            <td>{% if player %}{{ player.full_name }}{% else %}&mdash;{% endif %}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

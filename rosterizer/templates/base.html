@@ -35,6 +35,29 @@
         table.dataTable {
             color: #dee2e6;
         }
+
+        /* Bootstrap 5.0.2 hard-codes .table { color: #212529 } because it
+           renders light-theme tables by default; data-bs-theme="dark" only
+           takes effect in Bootstrap 5.3. Headers therefore inherited that
+           near-black and were invisible against this dark background. Body
+           cells are corrected below, but <th> has to be set explicitly. */
+        table th {
+            color: #dee2e6;
+        }
+
+        /* Same root cause as the table headers: Bootstrap 5.0.2 hard-codes
+           light component backgrounds that data-bs-theme="dark" would override
+           in 5.3. Cards inherit this template's light text colour, so a white
+           background leaves them effectively unreadable. */
+        .card {
+            background-color: #2b3035;
+            border-color: #495057;
+        }
+
+        table.table-striped > tbody > tr > th,
+        table.dataTable.table-striped > tbody > tr > th {
+            color: #dee2e6 !important;
+        }
         
         /* Fix striped table rows text color */
         table.table-striped > tbody > tr,

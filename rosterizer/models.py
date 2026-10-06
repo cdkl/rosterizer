@@ -20,6 +20,9 @@ class Session(models.Model):
     year = models.IntegerField()
     session_number = models.IntegerField()
     players = models.ManyToManyField(Player)
+    results_committed = models.BooleanField(
+        default=False,
+        help_text='Teams for this session have been confirmed as the historical record for results entry.')
     def __str__(self):
         return f'{self.year} - {self.session_number}'
     
@@ -115,3 +118,54 @@ class PlayerRule(models.Model):
     
     def __str__(self):
         return f"{self.player1.full_name} and {self.player2.full_name} - {self.get_rule_type_display()}"
+
+
+class TeamResult(models.Model):
+    """
+    Game results for one team in one session.
+
+    The roster composition (skip/vice/second/lead) is stored on this row rather
+    than referenced through Team. Team rows are volatile -- they are appended,
+    cleared and regenerated -- so a foreign key to Team would let recorded
+    history reattach to a different lineup, or cascade away entirely when teams
+    are cleared. Storing the composition here keeps results self-describing and
+    permanently correct as history.
+    """
+
+    session = models.ForeignKey(Session, on_delete=models.PROTECT)
+    team_number = models.IntegerField()
+    skip = models.ForeignKey(
+        Player, on_delete=models.PROTECT, null=True, blank=True, related_name='result_skip')
+    vice = models.ForeignKey(
+        Player, on_delete=models.PROTECT, null=True, blank=True, related_name='result_vice')
+    second = models.ForeignKey(
+        Player, on_delete=models.PROTECT, null=True, blank=True, related_name='result_second')
+    lead = models.ForeignKey(
+        Player, on_delete=models.PROTECT, null=True, blank=True, related_name='result_lead')
+    wins = models.IntegerField(default=0)
+    losses = models.IntegerField(default=0)
+    ties = models.IntegerField(default=0)
+    points_for = models.IntegerField(null=True, blank=True)
+    points_against = models.IntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = [['session', 'team_number']]
+        ordering = ['session__year', 'session__session_number', 'team_number']
+
+    def __str__(self):
+        return f'{self.session} - Team {self.team_number}: {self.wins}-{self.losses}-{self.ties}'
+
+    @property
+    def games(self):
+        return self.wins + self.losses + self.ties
+
+    @property
+    def win_rate(self):
+        """Win rate with ties counted as half a win. None when no games recorded."""
+        if self.games == 0:
+            return None
+        return (self.wins + 0.5 * self.ties) / self.games
+
+    def get_players(self):
+        return [p for p in (self.skip, self.vice, self.second, self.lead) if p is not None]

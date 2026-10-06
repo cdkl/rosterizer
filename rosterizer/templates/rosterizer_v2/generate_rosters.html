@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Generate Rosters v2{% endblock %}
+
+{% block content %}
+<h1>Roster Builder &mdash; {{ session }}</h1>
+{% if not problems %}
+<script src="{% static 'js/htmx.min.js' %}" defer></script>
+{% endif %}
+<a href="{% url 'session_list' %}" class="btn btn-secondary mb-3">Back to Session List</a>
+
+{% if problems %}
+<div class="alert alert-danger" role="alert">
+    <h5 class="alert-heading">Cannot generate rosters yet</h5>
+    <p class="mb-2">These problems in the session data need fixing first:</p>
+    <ul class="mb-0">
+        <li>{{ problems }}</li>
+    </ul>
+</div>
+{% else %}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Available results history</h5>
+        {% if coverage.any_results %}
+        <p class="text-body-secondary mb-0">
+            Results are recorded for
+            {{ coverage.sessions_with_results }} of {{ coverage.total_sessions }}
+            prior session{{ coverage.total_sessions|pluralize }}.
+            Player strength blends those results with stated experience, with
+            recent sessions weighted more heavily.
+        </p>
+        {% else %}
+        <p class="text-body-secondary mb-0">
+            No results have been recorded for any prior session. Player strength
+            will be derived from stated experience alone
+            (<a href="{% url 'enter_results' session.id %}">enter results</a>
+            for a past session to improve this).
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<form hx-post="{% url 'generate_rosters_v2' session.id %}"
+      hx-target="#roster-results"
+      hx-indicator="#generating">
+    {% csrf_token %}
+
+    <div class="mb-3">
+        <label for="candidates" class="form-label">Number of candidate rosters:</label>
+        <input type="number" class="form-control" style="max-width: 12rem;"
+               id="candidates" name="candidates" min="1" max="{{ max_candidates }}"
+               value="{{ default_candidates }}">
+        <div class="form-text">
+            Play-with preferences, position preferences and player rules are
+            always applied. Team continuity from previous sessions is used to
+            rank the results but is not a requirement.
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label for="seed" class="form-label">Seed (optional):</label>
+        <input type="text" class="form-control" style="max-width: 12rem;"
+               id="seed" name="seed" placeholder="leave blank for random">
+        <div class="form-text">Supply a seed to reproduce a previous run exactly.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Generate Rosters</button>
+
+    <span id="generating" class="htmx-indicator ms-3">
+        <span class="spinner-border spinner-border-sm me-2" role="status"
+              aria-hidden="true"></span>
+        Generating&hellip;
+    </span>
+</form>
+
+<div id="roster-results" class="mt-4"></div>
+
+{% endif %}
+{% endblock %}

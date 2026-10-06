@@ -1,0 +1,75 @@
+{% load rosterizer_extras %}
+{% if error %}
+<div class="alert alert-danger" role="alert">
+    <h5 class="alert-heading">Cannot generate rosters</h5>
+    <p class="mb-0">{{ error }}</p>
+</div>
+{% else %}
+{% if shortfall %}
+<div class="alert alert-info" role="alert">
+    Only {{ candidates|length }} distinct roster{{ candidates|length|pluralize }}
+    could be produced &mdash; {{ shortfall }} fewer than requested, because the
+    search space was exhausted.
+</div>
+{% endif %}
+
+<form action="{% url 'select_roster_v2' session.id %}" method="post">
+    {% csrf_token %}
+    {% for candidate in candidates %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <span class="fs-5 fw-bold">Roster {{ forloop.counter }}</span>
+                    <span class="badge bg-secondary ms-2">
+                        score {{ candidate.composite|floatformat:3 }}
+                    </span>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="selected_roster"
+                           id="roster-{{ forloop.counter0 }}"
+                           value="{{ forloop.counter0 }}"
+                           {% if forloop.first %}checked{% endif %}>
+                    <label class="form-check-label" for="roster-{{ forloop.counter0 }}">Select</label>
+                </div>
+            </div>
+
+            <div class="row g-2 mb-2">
+                {% for label, value in candidate.criteria.items %}
+                <div class="col-6 col-md-4">
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-capitalize">{{ label }}</span>
+                        <span>{{ value|floatformat:2 }}</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar {{ value|score_class }}" style="width: {{ value|pct }}"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if candidate.violations %}
+            <div class="alert alert-warning py-2 px-3 mb-2">
+                <strong>Not satisfied:</strong>
+                <ul class="mb-0 mt-1">
+                    {% for violation in candidate.violations %}
+                    <li class="small">{{ violation }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    hx-get="{% url 'roster_team_detail' session.id forloop.counter0 %}"
+                    hx-target="#teams-{{ forloop.counter0 }}"
+                    hx-swap="innerHTML">
+                Show teams
+            </button>
+            <div id="teams-{{ forloop.counter0 }}" class="mt-2"></div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary btn-lg">Apply Selected Roster</button>
+</form>
+{% endif %}

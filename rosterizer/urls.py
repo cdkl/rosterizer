@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_v2
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -24,5 +25,22 @@ urlpatterns = [
     path('rules/', views.rule_list, name='rule_list'),
     path('rules/create/', views.create_rule, name='create_rule'),
     path('rules/<int:rule_id>/delete/', views.delete_rule, name='delete_rule'),
+
+    # --- v2 roster builder (separate from the v1 generation path above) ---
+    path('v2/sessions/<int:session_id>/results/',
+         views_v2.enter_results, name='enter_results'),
+    path('v2/sessions/<int:session_id>/results/commit/',
+         views_v2.commit_roster_view, name='commit_roster'),
+    path('v2/sessions/<int:session_id>/generate/',
+         views_v2.generate_rosters_form, name='generate_rosters_form'),
+    path('v2/sessions/<int:session_id>/generate/run/',
+         views_v2.generate_rosters, name='generate_rosters_v2'),
+    path('v2/sessions/<int:session_id>/review/',
+         views_v2.roster_review, name='roster_review_v2'),
+    path('v2/sessions/<int:session_id>/select/',
+         views_v2.select_roster, name='select_roster_v2'),
+    path('v2/sessions/<int:session_id>/candidate/<int:index>/',
+         views_v2.team_detail, name='roster_team_detail'),
+
     path("favicon.ico", views.favicon),
 ]

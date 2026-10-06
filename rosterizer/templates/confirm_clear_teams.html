@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Clear Teams{% endblock %}
+
+{% block content %}
+<h1>Clear Teams</h1>
+
+<p>This will delete all teams for <strong>{{ session }}</strong>.</p>
+
+{% if has_results %}
+<div class="alert alert-warning" role="alert">
+    <h5 class="alert-heading">Recorded results reference these teams</h5>
+    <p class="mb-0">
+        Results already entered for this session keep their own copy of the
+        roster, so they will not be lost. However, the teams you see here will
+        be removed, and the historical record will no longer match the live
+        team list.
+    </p>
+</div>
+{% endif %}
+
+<form action="{% url 'clear_teams' session.id %}" method="post">
+    {% csrf_token %}
+    {% if has_results %}
+        <input type="hidden" name="confirmed" value="1">
+    {% endif %}
+    <button type="submit" class="btn btn-danger">Yes, clear the teams</button>
+    <a href="{% url 'team_list' session.id %}" class="btn btn-secondary">Cancel</a>
+</form>
+{% endblock %}

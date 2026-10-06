@@ -29,10 +29,18 @@ if not os.getenv("DJANGO_SECRET_KEY"):
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = (os.environ.get('DEBUG') == "True")
+# .env and .env.example both use DJANGO_DEBUG; the bare DEBUG name is still
+# honoured so deployments that export it directly keep working.
+DEBUG = (os.environ.get('DJANGO_DEBUG') or os.environ.get('DEBUG', '')) == "True"
  
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS","127.0.0.1").split(",")
-CSRF_TRUSTED_ORIGINS = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS","https://127.0.0.1").split(",")
+# Both spellings of localhost are accepted by default: `manage.py runserver`
+# advertises 127.0.0.1:8000, so a browser following that (or the README) is
+# rejected if only "localhost" is listed. Comma-separated, no spaces.
+ALLOWED_HOSTS = os.environ.get(
+    "DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    "http://127.0.0.1:8000,http://localhost:8000").split(",")
 
 # Application definition
 
@@ -137,6 +145,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+# Destination for `collectstatic`, which run.sh runs before starting gunicorn.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
