@@ -4,6 +4,14 @@
     <h5 class="alert-heading">Cannot generate rosters</h5>
     <p class="mb-0">{{ error }}</p>
 </div>
+{% elif no_players %}
+<div class="alert alert-info" role="alert">
+    <h5 class="alert-heading">Nothing to generate</h5>
+    <p class="mb-0">
+        No players remain to assign &mdash; every registered player is already
+        on a team. Clear or edit the existing teams to generate a new roster.
+    </p>
+</div>
 {% else %}
 {% if shortfall %}
 <div class="alert alert-info" role="alert">

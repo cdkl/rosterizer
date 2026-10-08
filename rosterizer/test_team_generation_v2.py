@@ -415,6 +415,51 @@ def test_generate_honours_never_together():
 
 
 # --------------------------------------------------------------------------
+# 8. player rules are scoped to session players
+# --------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_validate_ignores_rule_referencing_unregistered_player():
+    session, pss = build_league(8)
+    outsider = Player.objects.create(first_name='Ghost', last_name='X')
+    PlayerRule.objects.create(rule_type='never_together',
+                              player1=pss[0].player, player2=outsider)
+
+    context = validate_session(session.pk)
+    assert context.never_together_pairs == frozenset()
+    assert context.player_rule_weights == {}
+
+    out = generate_rosters_v2(session.pk, num_candidates=3, seed=1)
+    assert len(out['candidates']) == 3
+
+
+@pytest.mark.django_db
+def test_validate_ignores_rule_between_two_unregistered_players():
+    session, pss = build_league(8)
+    a = Player.objects.create(first_name='Out1', last_name='X')
+    b = Player.objects.create(first_name='Out2', last_name='X')
+    PlayerRule.objects.create(rule_type='must_be_together', player1=a, player2=b)
+
+    context = validate_session(session.pk)
+    assert context.must_together_pairs == frozenset()
+
+
+@pytest.mark.django_db
+def test_in_session_rule_still_enforced_after_scoping():
+    session, pss = build_league(8)
+    PlayerRule.objects.create(rule_type='never_together',
+                              player1=pss[0].player, player2=pss[1].player)
+
+    context = validate_session(session.pk)
+    pair = frozenset({pss[0].player_id, pss[1].player_id})
+    assert pair in context.never_together_pairs
+
+    out = generate_rosters_v2(session.pk, num_candidates=3, seed=4)
+    for candidate in out['candidates']:
+        assert not any('never-together' in v for v in candidate['violations'])
+
+
+# --------------------------------------------------------------------------
 # 6.6 performance
 # --------------------------------------------------------------------------
 

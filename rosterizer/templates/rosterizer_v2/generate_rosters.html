@@ -42,6 +42,27 @@
     </div>
 </div>
 
+{% if locked_team_count %}
+<div class="alert alert-info" role="alert">
+    {{ locked_team_count }} team{{ locked_team_count|pluralize }} already created
+    and locked; generation will not change them. 
+    {% if unassigned_count == 1 %}
+    1 player remains to assign.
+    {% else %}
+    {{ unassigned_count }} players remain to assign.
+    {% endif %}
+</div>
+{% endif %}
+
+{% if unassigned_count == 0 %}
+<div class="alert alert-info" role="alert">
+    <h5 class="alert-heading">Nothing to generate</h5>
+    <p class="mb-0">
+        No players remain to assign &mdash; every registered player is already
+        on a team. Clear or edit the existing teams to generate a new roster.
+    </p>
+</div>
+{% else %}
 <form hx-post="{% url 'generate_rosters_v2' session.id %}"
       hx-target="#roster-results"
       hx-indicator="#generating">
@@ -77,5 +98,6 @@
 
 <div id="roster-results" class="mt-4"></div>
 
+{% endif %}
 {% endif %}
 {% endblock %}

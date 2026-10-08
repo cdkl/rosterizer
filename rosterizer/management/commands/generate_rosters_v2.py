@@ -13,6 +13,7 @@ from rosterizer.team_generation_v2 import (
     DEFAULT_CANDIDATES,
     ValidationProblem,
     generate_rosters_v2,
+    validate_session,
 )
 
 CRITERION_LABELS = {
@@ -46,12 +47,25 @@ class Command(BaseCommand):
         if not Session.objects.filter(pk=session_id).exists():
             raise CommandError(f'No session with id {session_id}.')
 
+        # Validate once and reuse the context, so the lock/remainder counts and
+        # the generation run all describe the same snapshot.
         try:
-            result = generate_rosters_v2(
-                session_id, num_candidates=candidates_wanted, seed=options['seed'])
+            context = validate_session(session_id)
         except ValidationProblem as exc:
             # Non-zero exit so scripts can detect a session needing attention.
             raise CommandError(f'Cannot generate rosters: {exc}') from exc
+
+        self.stdout.write(
+            f'{context.locked_team_count} locked team(s), '
+            f'{len(context.registered_player_ids)} unassigned player(s).')
+
+        if context.team_count == 0:
+            self.stdout.write('No players remain to assign.')
+            return
+
+        result = generate_rosters_v2(
+            session_id, num_candidates=candidates_wanted, seed=options['seed'],
+            context=context)
 
         players = {
             ps.pk: ps.player

@@ -55,15 +55,31 @@ def validate_session(session_id):
                 f'Players {sorted(group)} must all share a team, but a team holds '
                 f'only {TEAM_SIZE}')
 
-    registered = context.registered_player_ids
+    # A co-location group that crosses a locked team cannot be satisfied without
+    # modifying that team. A group entirely inside one locked team is benign and
+    # simply drops out of generation; a group split across locked teams is just
+    # as unsatisfiable as one spanning locked and unassigned players.
+    locked = context.locked_player_ids
+    available = context.registered_player_ids
+    for group in context.co_location_groups:
+        locked_members = group & locked
+        available_members = group & available
+        if locked_members and available_members:
+            problems.append(
+                f'Players {sorted(group)} must share a team, but '
+                f'{sorted(locked_members)} are already on an existing team and '
+                f'{sorted(available_members)} are still unassigned')
+        elif len({context.locked_team_by_player.get(pid)
+                  for pid in locked_members}) > 1:
+            problems.append(
+                f'Players {sorted(group)} must share a team, but their locked '
+                f'members {sorted(locked_members)} are on different teams')
+
+    all_registered = frozenset(ps.player_id for ps in context.player_sessions)
     for pair in context.play_with_pairs:
         for player_id in pair:
-            if player_id not in registered:
+            if player_id not in all_registered:
                 problems.append(f'Play-with pair references unregistered player {player_id}')
-    for pair in context.must_together_pairs | context.never_together_pairs:
-        for player_id in pair:
-            if player_id not in registered:
-                problems.append(f'Player rule references unregistered player {player_id}')
 
     if problems:
         raise ValidationProblem('; '.join(problems))
@@ -552,6 +568,16 @@ def generate_rosters_v2(session_id, num_candidates=DEFAULT_CANDIDATES, seed=None
                'requested': int, 'shortfall': int}
     """
     context = context or validate_session(session_id)
+
+    # Everyone is already on a locked team: there is nothing to generate, and
+    # that is a valid state rather than an error.
+    if context.team_count == 0:
+        return {
+            'candidates': [],
+            'requested': num_candidates,
+            'shortfall': max(0, num_candidates),
+        }
+
     population = run_ga(context, seed=seed)
 
     seen = set()

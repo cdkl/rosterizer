@@ -262,3 +262,66 @@ def test_select_roster_rejects_out_of_range_index(client):
     client.post(reverse('select_roster_v2', args=[session.pk]),
                 {'selected_roster': '99'})
     assert Team.objects.filter(session=session).count() == 0
+
+
+# --------------------------------------------------------------------------
+# locked teams: reporting and conflict surfacing
+# --------------------------------------------------------------------------
+
+def lock_teams(session, pss, count):
+    for t in range(count):
+        members = pss[t * 4:(t + 1) * 4]
+        Team.objects.create(
+            session=session, team_number=t + 1,
+            skip=members[0].player, vice=members[1].player,
+            second=members[2].player, lead=members[3].player)
+
+
+@pytest.mark.django_db
+def test_generate_form_reports_locked_team_counts(client):
+    session, pss = build_league(30)
+    lock_teams(session, pss, 2)
+
+    body = client.get(
+        reverse('generate_rosters_form', args=[session.pk])).content.decode()
+    assert '2 teams already created' in body
+    assert '22 players remain' in body
+
+
+@pytest.mark.django_db
+def test_generate_form_omits_locked_report_when_no_teams(client):
+    session, _ = build_league(12)
+    body = client.get(
+        reverse('generate_rosters_form', args=[session.pk])).content.decode()
+    assert 'already created' not in body
+
+
+@pytest.mark.django_db
+def test_generate_form_shows_spanning_conflict(client):
+    session, pss = build_league(12)
+    lock_teams(session, pss, 1)
+    pss[0].play_with = 'P4 X'
+    pss[0].save()
+
+    body = client.get(
+        reverse('generate_rosters_form', args=[session.pk])).content.decode()
+    assert 'Cannot generate rosters yet' in body
+    assert str(pss[0].player_id) in body
+    assert 'Roster 1' not in body
+
+    response = client.post(reverse('generate_rosters_v2', args=[session.pk]),
+                           {'candidates': '3'})
+    assert 'Cannot generate rosters' in response.content.decode()
+    assert client.session.get('v2_rosters') is None
+
+
+@pytest.mark.django_db
+def test_generate_fully_placed_reports_nothing_to_assign(client):
+    session, pss = build_league(8)
+    lock_teams(session, pss, 2)
+
+    response = client.post(reverse('generate_rosters_v2', args=[session.pk]),
+                           {'candidates': '3'})
+    body = response.content.decode()
+    assert 'No players remain to assign' in body
+    assert 'Apply Selected Roster' not in body

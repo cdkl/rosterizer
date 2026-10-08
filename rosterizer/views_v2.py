@@ -142,6 +142,28 @@ def _to_int(value):
         return 0
 
 
+def lock_summary(session):
+    """
+    Existing teams and remaining unassigned players for the generation screen.
+
+    Existing teams are locked: generation covers only the players not already
+    placed, so the convenor sees what is fixed before starting.
+    """
+    locked_player_ids = set()
+    locked_team_count = 0
+    for row in Team.objects.filter(session=session).values_list(
+            'skip_id', 'vice_id', 'second_id', 'lead_id'):
+        locked_team_count += 1
+        locked_player_ids.update(pid for pid in row if pid is not None)
+
+    registered = set(
+        PlayerSession.objects.filter(session=session).values_list('player_id', flat=True))
+    return {
+        'locked_team_count': locked_team_count,
+        'unassigned_count': len(registered - locked_player_ids),
+    }
+
+
 def generate_rosters_form(request, session_id):
     """Configuration form for generating candidate rosters."""
     session = get_object_or_404(Session, pk=session_id)
@@ -152,6 +174,7 @@ def generate_rosters_form(request, session_id):
         'coverage': results_coverage(session),
         'default_candidates': DEFAULT_CANDIDATES,
         'max_candidates': MAX_CANDIDATES,
+        **lock_summary(session),
     })
 
 
@@ -187,6 +210,15 @@ def generate_rosters(request, session_id):
             'session': session,
             'error': problems,
             'candidates': [],
+        })
+
+    summary = lock_summary(session)
+    if summary['unassigned_count'] == 0:
+        return render(request, 'rosterizer_v2/_roster_cards.html', {
+            'session': session,
+            'candidates': [],
+            'error': None,
+            'no_players': True,
         })
 
     seed = request.POST.get('seed') or None

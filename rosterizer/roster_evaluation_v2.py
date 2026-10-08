@@ -7,7 +7,7 @@ approach of threading ``session_id`` through each function and hitting the ORM
 inside per-team loops is not viable here -- see design Decision 2.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import fmean
 
 from .models import PlayerRule, PlayerSession, Team, TeamResult
@@ -73,6 +73,14 @@ class LeagueContext:
     session_ages: dict
     team_count: int = 0
     mean_contribution: float = 0.0
+    # Players already placed on an existing (locked) team for this session.
+    locked_player_ids: frozenset = frozenset()
+    # Number of Team rows already created for this session.
+    locked_team_count: int = 0
+    # locked player id -> an identifier that is unique per existing team, so
+    # validation can tell whether two locked members share a team. Team numbers
+    # are not guaranteed unique/contiguous, so we key on the row's pk instead.
+    locked_team_by_player: dict = field(default_factory=dict)
 
     def player_id(self, player_session_id):
         return self.player_id_by_player_session.get(player_session_id)
@@ -252,7 +260,37 @@ def build_context(session_id):
 
     player_sessions = tuple(
         PlayerSession.objects.filter(session_id=session_id).select_related('player'))
-    rules = tuple(PlayerRule.objects.select_related('player1', 'player2'))
+
+    # Existing teams for this session are locked: their players are removed
+    # from the generation pool and are never modified. One query, with no
+    # per-team follow-up because only the raw player ids are needed.
+    locked_player_ids = set()
+    locked_team_by_player = {}
+    locked_team_count = 0
+    for team_pk, skip_id, vice_id, second_id, lead_id in (
+            Team.objects.filter(session_id=session_id).values_list(
+                'pk', 'skip_id', 'vice_id', 'second_id', 'lead_id')):
+        locked_team_count += 1
+        for player_id in (skip_id, vice_id, second_id, lead_id):
+            if player_id is None:
+                continue
+            locked_player_ids.add(player_id)
+            locked_team_by_player[player_id] = team_pk
+    locked_player_ids = frozenset(locked_player_ids)
+
+    registered_player_ids = frozenset(ps.player_id for ps in player_sessions)
+    available_player_ids = registered_player_ids - locked_player_ids
+    available_sessions = [ps for ps in player_sessions
+                          if ps.player_id in available_player_ids]
+
+    # A rule describes a situation between two players. If either is not in this
+    # session that situation cannot arise, so the rule does not apply here and
+    # must not influence grouping, validation, or scoring.
+    rules = tuple(
+        PlayerRule.objects
+        .filter(player1_id__in=registered_player_ids,
+                player2_id__in=registered_player_ids)
+        .select_related('player1', 'player2'))
 
     historical = {}
     for team in Team.objects.filter(session_id__in=prior_ids).prefetch_related():
@@ -277,8 +315,8 @@ def build_context(session_id):
     abilities = build_ability_table(session_id)
     mean_contribution = (
         sum(max(abilities.player_contribution(pid, p) for p in POSITIONS)
-            for pid in (ps.player_id for ps in player_sessions))
-        / len(player_sessions)) if player_sessions else 0.0
+            for pid in (ps.player_id for ps in available_sessions))
+        / len(available_sessions)) if available_sessions else 0.0
 
     return LeagueContext(
         session_id=session_id,
@@ -288,7 +326,7 @@ def build_context(session_id):
         preference_by_player={
             ps.player_id: (ps.preferred_position1, ps.preferred_position2)
             for ps in player_sessions},
-        registered_player_ids=frozenset(ps.player_id for ps in player_sessions),
+        registered_player_ids=available_player_ids,
         play_with_pairs=play_with_pairs,
         must_together_pairs=must_together,
         never_together_pairs=never_together,
@@ -299,8 +337,11 @@ def build_context(session_id):
         abilities=abilities,
         historical_teams=historical,
         session_ages=ages,
-        team_count=team_count_for(len(player_sessions)),
+        team_count=team_count_for(len(available_player_ids)),
         mean_contribution=mean_contribution,
+        locked_player_ids=locked_player_ids,
+        locked_team_count=locked_team_count,
+        locked_team_by_player=locked_team_by_player,
     )
 
 
@@ -426,7 +467,13 @@ def evaluate_folded_continuity(roster, context):
 
 
 def evaluate_plays_with_adherence(roster, context):
-    """Per-team score for keeping declared partners together."""
+    """Per-team score for keeping declared partners together.
+
+    Only pairings within the unassigned pool are scored. A pairing already
+    satisfied inside a locked team cannot be affected by generation, so it must
+    not penalise every generated team.
+    """
+    available = context.registered_player_ids
     scores = []
     for team in roster:
         ids = set()
@@ -439,6 +486,8 @@ def evaluate_plays_with_adherence(roster, context):
                 ids.add(player_id)
         score = 1.0
         for pair in context.play_with_pairs:
+            if not pair <= available:
+                continue
             # Each unmet pair penalises once, not once per member.
             if not pair <= ids:
                 score *= 0.5
@@ -516,7 +565,10 @@ def team_strength(team, context):
 def collect_violations(roster, context):
     """Specific unmet constraints, so a low score can be explained."""
     violations = []
-    for index, team in enumerate(roster):
+    available = context.registered_player_ids
+
+    team_ids = []
+    for team in roster:
         ids = set()
         for position in POSITIONS:
             value = team.get(position)
@@ -525,17 +577,27 @@ def collect_violations(roster, context):
             player_id = context.player_id(value)
             if player_id is not None:
                 ids.add(player_id)
-        for pair in context.play_with_pairs:
-            if not pair <= ids:
-                violations.append(
-                    f'Team {index + 1}: play-with pair {sorted(pair)} split across teams')
+        team_ids.append(ids)
+
+    # A play-with pairing is a roster-wide property: report each unsatisfied
+    # unassigned pairing once, not once per team. Pairings touching a locked
+    # team are either satisfied by that team or rejected by validation before
+    # generation; either way generation does not concern them.
+    for pair in context.play_with_pairs:
+        if not pair <= available:
+            continue
+        if not any(pair <= ids for ids in team_ids):
+            violations.append(f'play-with pair {sorted(pair)} split across teams')
+
+    for index, ids in enumerate(team_ids):
         for pair in context.never_together_pairs:
             if pair <= ids:
                 violations.append(f'Team {index + 1}: never-together rule violated {sorted(pair)}')
         for pair in context.must_together_pairs:
             if len(pair & ids) == 1:
                 violations.append(f'Team {index + 1}: must-be-together rule violated {sorted(pair)}')
-    missing = context.registered_player_ids - _roster_player_ids(roster, context)
+    assigned = set().union(*team_ids) if team_ids else set()
+    missing = available - assigned
     if missing:
         violations.append(f'Unassigned players: {sorted(missing)}')
     return violations
