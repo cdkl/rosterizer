@@ -43,11 +43,17 @@ def build_locked_league(n, locked_teams=0):
 
 
 def placed_player_session_ids(roster):
+    """Player session ids in a positioned roster (list of dicts)."""
     return [v for team in roster for v in team.values() if v is not None]
 
 
 def placed_player_ids(roster, context):
-    return {context.player_id(v) for v in placed_player_session_ids(roster)}
+    """Player ids from a membership or positioned roster."""
+    from .team_generation_v2 import _team_ids
+    ids = set()
+    for team in roster:
+        ids |= _team_ids(team)
+    return ids
 
 
 # --------------------------------------------------------------------------
@@ -166,7 +172,8 @@ def test_completeness_scores_locked_players_as_satisfied():
     session, pss = build_locked_league(30, locked_teams=2)
     ctx = build_context(session.pk)
 
-    roster = initialise_roster(ctx, random.Random(0))
+    from .team_generation_v2 import _membership_to_positioned
+    roster = _membership_to_positioned(initialise_roster(ctx, random.Random(0)), ctx)
     assert evaluate_completeness(roster, ctx) == 1.0
 
     # Drop one available player: the score degrades to the one-missing band.
@@ -191,8 +198,10 @@ def test_balance_scoped_to_generated_teams():
     session, pss = build_locked_league(30, locked_teams=2)
     ctx = build_context(session.pk)
 
-    roster = initialise_roster(ctx, random.Random(0))
-    assert len(roster) == ctx.team_count
+    from .team_generation_v2 import _membership_to_positioned
+    membership = initialise_roster(ctx, random.Random(0))
+    assert len(membership) == ctx.team_count
+    roster = _membership_to_positioned(membership, ctx)
     assert placed_player_ids(roster, ctx).isdisjoint(
         {ps.player_id for ps in pss[:8]})
 

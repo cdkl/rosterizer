@@ -469,9 +469,10 @@ def evaluate_folded_continuity(roster, context):
 def evaluate_plays_with_adherence(roster, context):
     """Per-team score for keeping declared partners together.
 
-    Only pairings within the unassigned pool are scored. A pairing already
-    satisfied inside a locked team cannot be affected by generation, so it must
-    not penalise every generated team.
+    A team is penalised only when one member of a play-with pair is on the
+    team and the other is not (the pair is *split* on this team).  Pairs
+    satisfied on a different team or inside a locked team do not penalise
+    this team.
     """
     available = context.registered_player_ids
     scores = []
@@ -488,8 +489,10 @@ def evaluate_plays_with_adherence(roster, context):
         for pair in context.play_with_pairs:
             if not pair <= available:
                 continue
-            # Each unmet pair penalises once, not once per member.
-            if not pair <= ids:
+            overlap = pair & ids
+            # Penalise this team only when the pair is split — exactly
+            # one member is on this team while the other is somewhere else.
+            if overlap and overlap != pair:
                 score *= 0.5
         scores.append(score)
     return scores

@@ -22,15 +22,23 @@ The system SHALL generate complete team assignments for all players registered i
 - **THEN** the system generates teams for the 22 unassigned players, leaving the 2 existing teams fixed
 
 ### Requirement: Honor position preferences
-The system SHALL assign each player to their first preferred position whenever possible. When the first preference cannot be satisfied, the system SHALL attempt the second preference. A player with no stated position preference MAY be assigned to any available position.
+The system SHALL maximise the number of players assigned to their first preferred position within each team before considering second preferences. When two or more players on the same team share a first-preference position, the system SHALL maximise the count of those players who receive their first preference before any remaining player falls back to a second preference. Only when every feasible first-preference assignment for a team has been exhausted SHALL the system assign a player to their second preference. A player with no stated position preference MAY be assigned to any available position.
 
 #### Scenario: First preference satisfied
 - **WHEN** a player has preferred_position1 "Skip" and preferred_position2 "Vice"
-- **THEN** the system assigns them as Skip unless another constraint prevents it
+- **THEN** the system assigns them as Skip unless that position is already filled by another player on the same team whose first preference is also Skip and no alternate assignment satisfies both
 
 #### Scenario: Fallback to second preference
 - **WHEN** a player has preferred_position1 "Skip" but all Skip positions are filled
 - **THEN** the system assigns them to their preferred_position2 if available
+
+#### Scenario: Conflicting preferences on same team maximised
+- **WHEN** two players on the same team both want Skip as first preference
+- **THEN** the system assigns one to Skip and falls back to the other's second preference only if no per-team assignment gives both their first choice
+
+#### Scenario: Preference tie-break by team balance
+- **WHEN** multiple valid position assignments for a team achieve the same maximum number of first-preference and second-preference matches
+- **THEN** the system chooses the assignment that keeps the roster's team strengths most even
 
 ### Requirement: Honor play-with pairings
 The system SHALL place each declared play-with pair together on the same team. The play-with relationship SHALL be treated as symmetric: if either member names the other as a play-with partner, the two are paired. A player MAY declare at most one play-with partner, and the system SHALL treat the declared pairings as a set of disjoint pairs.
@@ -85,7 +93,7 @@ The system SHALL enforce active PlayerRule constraints only where both reference
 - **THEN** the rule is ignored, the registered player is assigned freely, and generation proceeds without reporting a problem
 
 ### Requirement: Generate multiple candidate rosters
-The system SHALL generate multiple distinct candidate rosters for the same session. Each candidate SHALL be an independent team assignment. The number of candidates generated SHALL be configurable.
+The system SHALL generate multiple distinct candidate rosters for the same session. Each candidate SHALL be an independent team assignment. The number of candidates generated SHALL be configurable. Candidates SHALL differ meaningfully in team composition: the system SHALL select candidates so that each successive candidate maximises its composite score minus a penalty proportional to how many player pairs it shares with already-selected candidates.
 
 #### Scenario: Configurable candidate count
 - **WHEN** the user requests 5 candidate rosters
@@ -95,9 +103,17 @@ The system SHALL generate multiple distinct candidate rosters for the same sessi
 - **WHEN** multiple candidates are generated
 - **THEN** no two candidates have identical team assignments
 
+#### Scenario: Candidates are compositionally distinct
+- **WHEN** multiple candidates are generated
+- **THEN** no two candidates share more than a configurable fraction of their co-team player pairs
+
+#### Scenario: Diversity penalty preserves score ordering
+- **WHEN** two candidates are very similar in composition but differ in score
+- **THEN** the higher-scoring candidate is selected and the near-identical lower-scoring candidate is passed over in favor of a more compositionally different alternative
+
 #### Scenario: Requested count exceeds available variety
-- **WHEN** the convenor requests more candidates than the engine can produce distinctly
-- **THEN** the system returns as many distinct candidates as it can and reports the reduced count
+- **WHEN** the convenor requests more candidates than the engine can produce with distinct team compositions
+- **THEN** the system returns as many compositionally distinct candidates as it can and reports the reduced count
 
 ### Requirement: Validate feasibility before generating
 The system SHALL validate player data for structural problems before starting generation, including players declaring more than one play-with partner, play-with pairs naming a player who is not registered in the session, and groups that must co-locate exceeding team size. Generation SHALL NOT begin when a blocking problem is found.
