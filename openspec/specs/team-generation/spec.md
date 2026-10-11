@@ -52,7 +52,7 @@ The system SHALL place each declared play-with pair together on the same team. T
 - **THEN** the player is assigned freely without a partner constraint
 
 ### Requirement: Balance teams by positional strength
-The system SHALL distribute players across teams so that team strength, computed as the sum of each player's ability at their assigned position weighted by that position's influence, is as even as possible across teams. The system SHALL place players in higher-influence positions in a way that minimizes the spread in team strength, rather than balancing players' raw totals alone.
+The system SHALL distribute players across teams so that team strength, computed as the sum of each player's ability at their assigned position multiplied by that position's influence, is as even as possible across teams. Positional influence SHALL be weighted as follows: Skip 38%, Vice 27%, Second 20%, Lead 15%. The system SHALL place players in higher-influence positions in a way that minimizes the spread in team strength, rather than balancing players' raw totals alone. For 3-player teams with no Lead, the system SHALL rescale the Skip, Vice, and Second weights proportionally so they sum to 1.0 while preserving their relative ratios.
 
 #### Scenario: Balanced rosters beat unbalanced alternatives
 - **WHEN** the engine is run against a league with a wide spread of player ability
@@ -65,6 +65,10 @@ The system SHALL distribute players across teams so that team strength, computed
 #### Scenario: Fallback when no results exist
 - **WHEN** no results are recorded for any prior session
 - **THEN** ability is derived from stated experience alone and balancing still applies
+
+#### Scenario: Three-player teams rescale proportions
+- **WHEN** a team has only Skip, Vice, and Second with no Lead
+- **THEN** the Skip, Vice, and Second influence weights are rescaled proportionally to sum to 1.0, preserving their relative ratios
 
 ### Requirement: Maximize session-to-session variety
 The system SHALL prefer assignments that mix players who did not share a team in previous sessions. This preference SHALL influence candidate ranking but SHALL NOT be treated as a requirement that generation must satisfy.

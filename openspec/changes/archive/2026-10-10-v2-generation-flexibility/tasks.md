@@ -2,7 +2,7 @@
 
 ## 1. Position assignment optimizer
 
-- [x] 1.1 Implement `assign_positions(membership_team, context, running_mean)` that enumerates all valid position assignments for a team's members, keeps those achieving the maximum `(first_pref_count, second_pref_count)` tuple, and returns the one whose contribution sum best maintains balance against the running mean. Verify by calling on the Session 26 Team 1 membership `{Ingrid, Bob, Curtis, Ainsley}` and asserting Ingrid gets Second (her first preference) and Bob gets Skip (his first preference).
+- [x] 1.1 Implement `assign_positions(membership_team, context, running_mean)` that enumerates all valid position assignments for a team's members, keeps those achieving the maximum `(first_pref_count, second_pref_count)` tuple, and returns the one whose contribution sum best maintains balance against the running mean. Verify by calling on the Session 26 Team 1 membership `{Jane, Tom, Curtis, Ainsley}` and asserting Jane gets Second (her first preference) and Tom gets Skip (his first preference).
 - [x] 1.2 Add `assign_roster_positions(membership_roster, context)` that iterates teams in order, calls `assign_positions` per team, updates the running mean, and returns the positioned list-of-dicts. Verify with a 2-team test roster where the second team's assignment compensates for the first team's strength.
 - [x] 1.3 Add a position-assignment cache keyed by `frozenset(member_ids)` cleared per GA run, and verify via `_cache_hits` counter that repeated team compositions hit the cache during a `run_ga` call.
 
@@ -34,6 +34,6 @@
 ## 6. Integration verification
 
 - [x] 6.1 Run the full test suite with `python -m pytest rosterizer/ -v` and verify all tests pass.
-- [x] 6.2 Run the CLI command `./venv/bin/python manage.py generate_rosters_v2 --session-id 26 --candidates 10 --seed 1` and verify Ingrid Kebbel-Beer is assigned Second or Lead (not Skip) in every candidate, and the position_preference score is ≥ 0.75.
+- [x] 6.2 Run the CLI command `./venv/bin/python manage.py generate_rosters_v2 --session-id 26 --candidates 10 --seed 1` and verify Jane Smith is assigned Second or Lead (not Skip) in every candidate, and the position_preference score is ≥ 0.75.
 - [x] 6.3 Verify the 12-team performance budget test still passes with `python -m pytest rosterizer/test_team_generation_v2.py::test_twelve_team_league_generates_within_time_budget -v`.
 - [x] 6.4 Verify that `python -m pytest rosterizer/test_roster_evaluation_v2.py -v` and `python -m pytest rosterizer/test_integration_v2.py -v` pass unchanged (scoring and integration contracts preserved).

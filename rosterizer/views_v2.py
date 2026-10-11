@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import PlayerSession, Session, Team, TeamResult
 from .position_strength import POSITIONS
-from .roster_evaluation_v2 import evaluate_roster, build_context
+from .roster_evaluation_v2 import evaluate_roster
 from .team_generation_v2 import ValidationProblem, generate_rosters_v2, validate_session
 
 DEFAULT_CANDIDATES = 10
@@ -224,12 +224,7 @@ def generate_rosters(request, session_id):
     seed = request.POST.get('seed') or None
     result = generate_rosters_v2(session.pk, num_candidates=candidates_wanted, seed=seed)
 
-    stored = []
-    for candidate in result['candidates']:
-        teams = []
-        for team in candidate['roster']:
-            teams.append({position: team.get(position) for position in POSITIONS})
-        stored.append(teams)
+    stored = result['candidates']
     request.session['v2_rosters'] = stored
 
     return render(request, 'rosterizer_v2/_roster_cards.html', {
@@ -247,11 +242,10 @@ def roster_review(request, session_id):
     if not stored:
         return redirect('generate_rosters_form', session_id=session.pk)
 
-    # Stored candidates are already a list of {position: value} team dicts.
-    context = build_context(session.pk)
-    candidates = [evaluate_roster(roster, context) | {'roster': roster}
-                  for roster in stored]
-    candidates.sort(key=lambda c: c['composite'], reverse=True)
+    # Stored candidates are full evaluation dicts from generate_rosters_v2.
+    candidates = stored
+    # They should already be sorted, but re-sort for safety.
+    candidates = sorted(candidates, key=lambda c: c['composite'], reverse=True)
 
     return render(request, 'rosterizer_v2/roster_review.html', {
         'session': session,
@@ -279,7 +273,8 @@ def select_roster(request, session_id):
         messages.error(request, 'That roster is no longer available.')
         return redirect('roster_review', session_id=session.pk)
 
-    roster = stored[index]
+    candidate = stored[index]
+    roster = candidate['roster']
     created = apply_roster(session, roster)
     request.session.pop('v2_rosters', None)
     messages.success(request, f'Applied {created} new teams.')
@@ -334,15 +329,88 @@ def team_detail(request, session_id, index):
     if not stored or not 0 <= index < len(stored):
         return HttpResponse('', status=404)
 
-    roster = stored[index]
+    candidate = stored[index]
+    roster = candidate['roster']
+    details = candidate.get('details', {})
     players = {ps.pk: ps.player for ps in
                PlayerSession.objects.filter(session=session).select_related('player')}
 
-    rows = []
-    for team in roster:
-        rows.append([players.get(team.get(position)) for position in POSITIONS])
+    # Build player name lookup keyed by player_id.
+    player_names = {}
+    for ps in PlayerSession.objects.filter(session=session).select_related('player'):
+        player_names[ps.player_id] = ps.player.full_name
+
+    # Build team summaries: one dict per team with scoring, player info, and notes.
+    team_summaries = []
+    td = details.get('teams', [])
+    cd = details.get('continuity_detail', [])
+    sv_list = details.get('structured_violations', [])
+
+    # Index player details by (team_index, position) for fast lookup.
+    pd = details.get('players', [])
+    contrib_by_team_pos = {}
+    pi = 0
+    for ti, team in enumerate(roster):
+        for pos in POSITIONS:
+            if team.get(pos) is not None and pi < len(pd):
+                contrib_by_team_pos[(ti, pos)] = pd[pi]['contribution']
+                pi += 1
+
+    for ti, team in enumerate(roster):
+        player_cells = []
+        for pos in POSITIONS:
+            player = players.get(team.get(pos))
+            contrib = contrib_by_team_pos.get((ti, pos))
+            player_cells.append({
+                'name': player.full_name if player else '\u2014',
+                'contribution': contrib,
+            })
+        ts = {
+            'player_cells': player_cells,
+            'plays_with': td[ti]['plays_with'] if ti < len(td) else None,
+            'player_rules': td[ti]['player_rules'] if ti < len(td) else None,
+            'continuity': td[ti]['continuity'][0] if ti < len(td) and td[ti].get('continuity') else None,
+            'strength': td[ti]['strength'] if ti < len(td) else None,
+            'violations': [],
+            'continuity_notes': [],
+        }
+        for sv in sv_list:
+            if ti in sv.get('team_indices', []):
+                ts['violations'].append(sv['message'])
+        if ti < len(cd):
+            for note in cd[ti]:
+                overlap = len(note.get('common_player_ids', []))
+                if overlap >= 2:
+                    names = [player_names.get(pid, str(pid)) for pid in note.get('common_player_ids', [])]
+                    ts['continuity_notes'].append(
+                        f'{overlap} players returning from {note["lookback"]} '
+                        f'session{"s" if note["lookback"] != 1 else ""} ago: '
+                        f'{", ".join(names)}')
+        team_summaries.append(ts)
+
+    # Build player stats for the detail section, grouped by team.
+    team_player_stats = []
+    pi = 0
+    for ti, team in enumerate(roster):
+        team_stats = []
+        for pos in POSITIONS:
+            if team.get(pos) is not None and pi < len(pd):
+                p = pd[pi]
+                player = players.get(team.get(pos))
+                team_stats.append({
+                    'name': player.full_name if player else '-',
+                    'position': pos,
+                    'years_curled': p.get('years_curled', 0),
+                    'ability': p.get('ability', 0.0),
+                    'contribution': p.get('contribution', 0.0),
+                })
+                pi += 1
+        if team_stats:
+            team_player_stats.append(team_stats)
 
     return render(request, 'rosterizer_v2/_team_detail.html', {
-        'teams': rows,
+        'team_summaries': team_summaries,
         'positions': POSITIONS,
+        'team_player_stats': team_player_stats,
+        'violations': [sv['message'] for sv in sv_list],
     })

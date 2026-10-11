@@ -566,8 +566,9 @@ def team_strength(team, context):
 # --------------------------------------------------------------------------
 
 def collect_violations(roster, context):
-    """Specific unmet constraints, so a low score can be explained."""
+    """Returns (human_readable_strings, structured_violations)."""
     violations = []
+    structured = []
     available = context.registered_player_ids
 
     team_ids = []
@@ -590,20 +591,55 @@ def collect_violations(roster, context):
         if not pair <= available:
             continue
         if not any(pair <= ids for ids in team_ids):
-            violations.append(f'play-with pair {sorted(pair)} split across teams')
+            msg = f'play-with pair {sorted(pair)} split across teams'
+            violations.append(msg)
+            # Find which teams the split members landed on.
+            member_teams = {}
+            for pid in pair:
+                for ti, ids in enumerate(team_ids):
+                    if pid in ids:
+                        member_teams[pid] = ti
+                        break
+            structured.append({
+                'type': 'split_pair',
+                'player_ids': sorted(pair),
+                'team_indices': [member_teams.get(pid, -1) for pid in sorted(pair)],
+                'message': msg,
+            })
 
     for index, ids in enumerate(team_ids):
         for pair in context.never_together_pairs:
             if pair <= ids:
-                violations.append(f'Team {index + 1}: never-together rule violated {sorted(pair)}')
+                msg = f'Team {index + 1}: never-together rule violated {sorted(pair)}'
+                violations.append(msg)
+                structured.append({
+                    'type': 'never_together',
+                    'player_ids': sorted(pair),
+                    'team_indices': [index],
+                    'message': msg,
+                })
         for pair in context.must_together_pairs:
             if len(pair & ids) == 1:
-                violations.append(f'Team {index + 1}: must-be-together rule violated {sorted(pair)}')
+                msg = f'Team {index + 1}: must-be-together rule violated {sorted(pair)}'
+                violations.append(msg)
+                structured.append({
+                    'type': 'must_be_together',
+                    'player_ids': sorted(pair),
+                    'team_indices': [index],
+                    'message': msg,
+                })
     assigned = set().union(*team_ids) if team_ids else set()
     missing = available - assigned
     if missing:
-        violations.append(f'Unassigned players: {sorted(missing)}')
-    return violations
+        msg = f'Unassigned players: {sorted(missing)}'
+        violations.append(msg)
+        structured.append({
+            'type': 'unassigned',
+            'player_ids': sorted(missing),
+            'team_indices': [],
+            'message': msg,
+        })
+    return violations, structured
 
 
 def evaluate_roster(roster, context, weights=None):
@@ -611,16 +647,24 @@ def evaluate_roster(roster, context, weights=None):
     Score one roster.
 
     Returns a dict of per-criterion scores, a clamped weighted-mean composite,
-    and the specific constraint violations present.
+    the specific constraint violations present, and per-team/per-player scoring
+    detail for the review UI.
     """
     weights = weights or CRITERION_WEIGHTS
+
+    pw_scores = evaluate_plays_with_adherence(roster, context) or [1.0]
+    rules_scores = evaluate_player_rules(roster, context) or [1.0]
+    continuity_by_lookback = [
+        evaluate_team_continuity(roster, context, lookback)
+        for lookback in CONTINUITY_LOOKBACKS
+    ]
+
     criteria = {
         'completeness': evaluate_completeness(roster, context),
         'position_preference': evaluate_position_preference(roster, context),
         'team_continuity': evaluate_folded_continuity(roster, context),
-        'plays_with_adherence': fmean(
-            evaluate_plays_with_adherence(roster, context) or [1.0]),
-        'player_rules': fmean(evaluate_player_rules(roster, context) or [1.0]),
+        'plays_with_adherence': fmean(pw_scores),
+        'player_rules': fmean(rules_scores),
         'team_balance': evaluate_team_balance(roster, context),
     }
 
@@ -628,10 +672,96 @@ def evaluate_roster(roster, context, weights=None):
     total_weight = sum(weights.get(k, 1.0) for k in clamped)
     composite = sum(clamped[k] * weights.get(k, 1.0) for k in clamped) / total_weight
 
+    violations, structured_violations = collect_violations(roster, context)
+
+    # ---- build per-team and per-player detail ----
+
+    # Per-team: plays-with, rules, continuity (per lookback), and strength.
+    team_strengths = [team_strength(t, context) for t in roster]
+    team_details = []
+    for i in range(len(roster)):
+        team_details.append({
+            'plays_with': pw_scores[i] if i < len(pw_scores) else 1.0,
+            'player_rules': rules_scores[i] if i < len(rules_scores) else 1.0,
+            'continuity': [ct[i] if i < len(ct) else 1.0
+                           for ct in continuity_by_lookback],
+            'strength': team_strengths[i] if i < len(team_strengths) else 0.0,
+        })
+
+    # Per-player: position, experience, ability, contribution.
+    player_details = []
+    for team in roster:
+        for position in POSITIONS:
+            value = team.get(position)
+            if value is None:
+                continue
+            player_id = context.player_id(value)
+            if player_id is None:
+                continue
+            ps = None
+            for p in context.player_sessions:
+                if p.player_id == player_id:
+                    ps = p
+                    break
+            player_details.append({
+                'position': position,
+                'years_curled': ps.years_curled if ps else 0,
+                'ability': context.abilities.ability(player_id, position),
+                'contribution': context.abilities.player_contribution(
+                    player_id, position),
+            })
+
+    # Continuity detail: per-team, per-lookback, which prior teammates overlap.
+    continuity_detail = []
+    age = context.session_ages
+    for ti, team in enumerate(roster):
+        team_pids = set()
+        for position in POSITIONS:
+            value = team.get(position)
+            if value is None:
+                continue
+            pid = context.player_id(value)
+            if pid is not None:
+                team_pids.add(pid)
+        lookback_notes = []
+        for lookback in CONTINUITY_LOOKBACKS:
+            target_age = lookback - 1
+            target_sessions = [pk for pk, a in age.items() if a == target_age]
+            prior_teams = []
+            for spk in target_sessions:
+                prior_teams.extend(context.historical_teams.get(spk, []))
+            # Find the prior team with the most overlap.
+            best_common = set()
+            for prior in prior_teams:
+                common = team_pids & prior
+                if len(common) > len(best_common):
+                    best_common = common
+            if best_common:
+                # Apply the same play-with exemption as _continuity_score:
+                # if the only overlap is a declared play-with pair, it does
+                # not affect the score — suppress the note.
+                effective = len(best_common)
+                if effective == 2:
+                    if frozenset(best_common) in context.play_with_pairs:
+                        effective = 1
+                if effective >= 2:
+                    lookback_notes.append({
+                        'lookback': lookback,
+                        'session_ids': target_sessions,
+                        'common_player_ids': sorted(best_common),
+                    })
+        continuity_detail.append(lookback_notes)
+
     return {
         'composite': composite,
         'criteria': criteria,
-        'violations': collect_violations(roster, context),
+        'violations': violations,
+        'details': {
+            'teams': team_details,
+            'players': player_details,
+            'structured_violations': structured_violations,
+            'continuity_detail': continuity_detail,
+        },
     }
 
 

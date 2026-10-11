@@ -2,7 +2,7 @@
 
 ## Why
 
-The v2 team generation engine produces rosters where a player's position is permanently frozen at initialisation — the genetic algorithm can only swap players between teams at the same position, never move a player to a different position. This causes a co-location group (play-with pair) with mismatched preferences to lock one member into the wrong slot in every candidate: Ingrid Kebbel-Beer wants Second/Lead but is placed at Skip in all 10 generated candidates because her partner (Bob Beer, wants Skip) sorts first. The `position_preference` criterion achieves only 2 distinct values across the entire 100-individual GA population, confirming the engine has effectively no gradient on this criterion. Additionally, the 10 returned candidates share 80%+ of their co-team player pairs — they are near-clones with trivial swaps, not meaningfully distinct alternatives.
+The v2 team generation engine produces rosters where a player's position is permanently frozen at initialisation — the genetic algorithm can only swap players between teams at the same position, never move a player to a different position. This causes a co-location group (play-with pair) with mismatched preferences to lock one member into the wrong slot in every candidate: Jane Smith wants Second/Lead but is placed at Skip in all 10 generated candidates because her partner (Tom Brown, wants Skip) sorts first. The `position_preference` criterion achieves only 2 distinct values across the entire 100-individual GA population, confirming the engine has effectively no gradient on this criterion. Additionally, the 10 returned candidates share 80%+ of their co-team player pairs — they are near-clones with trivial swaps, not meaningfully distinct alternatives.
 
 ## What Changes
 

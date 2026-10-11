@@ -186,8 +186,13 @@ def test_shrinkage_prior_scales_with_median():
 # --------------------------------------------------------------------------
 
 def test_ability_with_no_history_is_experience():
-    assert position_ability(10, [], prior_games=5.0) == pytest.approx(experience_score(10))
-    assert position_ability(10, [], prior_games=0.0) == pytest.approx(experience_score(10))
+    """No history blends experience with .500 — not pure experience."""
+    exp10 = experience_score(10)
+    expected = (0.5 + exp10) / 2
+    assert position_ability(10, [], prior_games=5.0) == pytest.approx(expected)
+    # With prior_games=0 there is no backfill, but with no observations
+    # and no prior the denominator is 0 — still returns expectation.
+    assert position_ability(10, [], prior_games=0.0) == pytest.approx(exp10)
 
 
 def test_ability_with_sparse_history_sits_between_expectation_and_observation():
@@ -239,8 +244,9 @@ def test_ability_table_reads_results_for_the_played_position(db, players, prior_
     expected = experience_score(10)
     skip_ability = table.ability(winner.pk, 'Skip')
     assert 0.9 < skip_ability < expected
-    # A player with no results at this position gets the expectation exactly.
-    assert table.ability(loser.pk, 'Skip') == pytest.approx(expected)
+    # A player with no results at this position gets the .500-backfilled value.
+    backfilled = (0.5 + expected) / 2
+    assert table.ability(loser.pk, 'Skip') == pytest.approx(backfilled)
 
 
 @pytest.mark.django_db
@@ -252,9 +258,10 @@ def test_ability_is_position_specific(db, players, prior_session, current_sessio
     table = build_ability_table(current_session.pk)
 
     # Results at Skip must not leak into Lead, which has no history and so
-    # falls back to the experience expectation.
+    # falls back to the .500-backfilled value.
     assert table.ability(star.pk, 'Skip') > table.ability(star.pk, 'Lead')
-    assert table.ability(star.pk, 'Lead') == pytest.approx(experience_score(2))
+    backfilled = (0.5 + experience_score(2)) / 2
+    assert table.ability(star.pk, 'Lead') == pytest.approx(backfilled)
 
 
 @pytest.mark.django_db
@@ -361,9 +368,9 @@ def test_same_ability_worth_more_at_higher_influence_position():
 
 
 def test_promotion_priced_against_ability_loss():
-    """Strong Vice, weak Skip: keeping them at Vice yields more."""
+    """Strong Vice (0.8), weak Skip (0.4): keeping them at Vice yields more."""
     at_vice = contribution(0.8, 'Vice')
-    at_skip = contribution(0.6, 'Skip')
+    at_skip = contribution(0.4, 'Skip')
     assert at_vice > at_skip
 
 
@@ -396,3 +403,54 @@ def test_team_strength_skips_empty_positions(db, players, current_session):
         contribution(table.ability(team_sessions[0].player_id, 'Skip'), 'Skip')
         + contribution(table.ability(team_sessions[1].player_id, 'Vice'), 'Vice')
         + contribution(table.ability(team_sessions[2].player_id, 'Second'), 'Second'))
+
+
+# --------------------------------------------------------------------------
+# ability backfill tests
+# --------------------------------------------------------------------------
+
+def test_ability_backfill_zero_games():
+    """No observations: ability is (0.5 + exp) / 2."""
+    exp = experience_score(20)
+    expected = (0.5 + exp) / 2
+    assert position_ability(20, [], prior_games=3.5) == pytest.approx(expected)
+
+
+def test_ability_backfill_sparse_data():
+    """Weighted games below prior: proportional .500 backfill."""
+    # 1.7 weighted games, 0.457 win rate, 3.5 prior, 10yr exp.
+    exp = experience_score(10)
+    observations = [(1.0, 0.457, 1.7)]
+    result = position_ability(10, observations, prior_games=3.5)
+    # (1.7*0.457 + 1.8*0.5 + 3.5*exp) / (1.7 + 1.8 + 3.5)
+    missing = 3.5 - 1.7
+    expected = (1.7 * 0.457 + missing * 0.5 + 3.5 * exp) / (1.7 + missing + 3.5)
+    assert result == pytest.approx(expected)
+    # Must be lower than pure-experience fallback.
+    assert result < exp
+
+
+def test_ability_backfill_established_player_unchanged():
+    """Weighted games above prior: identical to original formula."""
+    exp = experience_score(15)
+    observations = [(1.0, 0.75, 16.6)]
+    result = position_ability(15, observations, prior_games=3.5)
+    # missing = max(0, 3.5 - 16.6) = 0 → same as original
+    expected = (16.6 * 0.75 + 3.5 * exp) / (16.6 + 3.5)
+    assert result == pytest.approx(expected)
+
+
+def test_ability_backfill_novice_rates_at_floor():
+    """0-year player with no observations: ability is 0.25."""
+    assert position_ability(0, [], prior_games=3.5) == pytest.approx(0.25)
+    # Also check: experience_score(0) = 0, (0.5 + 0)/2 = 0.25
+
+
+def test_contribution_rescaled_sums_to_one():
+    """3-player team rescaled weights sum to 1.0."""
+    from .position_strength import contribution_rescaled
+    total = (contribution_rescaled(1.0, 'Skip')
+             + contribution_rescaled(1.0, 'Vice')
+             + contribution_rescaled(1.0, 'Second'))
+    assert total == pytest.approx(1.0)
+    assert contribution_rescaled(0.5, 'Lead') == 0.0

@@ -74,7 +74,7 @@ The system SHALL score each team on compliance with PlayerRule constraints. Each
 - **THEN** that team's player rules score is 0.5
 
 ### Requirement: Evaluate team balance by positional strength
-The system SHALL score a roster on how evenly team strength is distributed across teams, where team strength is the sum of each player's ability at their assigned position multiplied by that position's influence weight. The score SHALL be derived from the coefficient of variation (standard deviation divided by mean) of team strength across teams. The score SHALL range from 0.0 for extremely unbalanced rosters to 1.0 for perfectly balanced rosters.
+The system SHALL score a roster on how evenly team strength is distributed across teams, where team strength is the sum of each player's ability at their assigned position multiplied by that position's influence weight. Positional influence SHALL be weighted as follows: Skip 38%, Vice 27%, Second 20%, Lead 15%. For 3-player teams with no Lead, the system SHALL rescale the Skip, Vice, and Second weights proportionally so they sum to 1.0. The score SHALL be derived from the coefficient of variation (standard deviation divided by mean) of team strength across teams. The score SHALL range from 0.0 for extremely unbalanced rosters to 1.0 for perfectly balanced rosters.
 
 #### Scenario: Perfectly balanced teams
 - **WHEN** all teams have the same total strength
@@ -88,9 +88,13 @@ The system SHALL score a roster on how evenly team strength is distributed acros
 - **WHEN** two rosters have identical player assignments but differ only in which players occupy the higher-influence positions
 - **THEN** the roster placing stronger players in higher-influence positions has a better balance score
 
+#### Scenario: Three-player teams rescale for balance
+- **WHEN** a roster includes a 3-player team with no Lead
+- **THEN** that team's strength uses rescaled Skip, Vice, and Second weights for the balance calculation
+
 #### Scenario: Fallback when no results exist
 - **WHEN** no results are recorded for any player in the session
-- **THEN** ability is derived entirely from stated experience, and balance is still computed on positional strength
+- **THEN** ability is computed from stated experience combined with a .500 default per the sparse-data backfill rule, and balance is still computed on positional strength
 
 ### Requirement: Compute a composite roster score as a weighted mean
 The system SHALL compute a single composite score for each roster as a weighted arithmetic mean of its individual criterion scores. Each criterion score SHALL be clamped to a floor of 0.05 before averaging, so that candidates violating a constraint remain distinguishable from one another rather than collapsing to an identical value. The composite score SHALL determine the default sort order when presenting rosters.
@@ -121,6 +125,25 @@ The system SHALL return the specific constraint violations present in a roster, 
 - **WHEN** a roster contains an unsatisfied play-with pairing
 - **THEN** the evaluation result names the affected players
 
+### Requirement: Backfill sparse ability data with .500 default
+The system SHALL, when computing a player's ability at a position where weighted observed games fall below the shrinkage prior, replace the missing games with a .500 win-rate default. The ability SHALL be computed as the standard shrinkage formula with missing games added at .500. When weighted observed games meet or exceed the prior, the formula SHALL be unchanged.
+
+#### Scenario: No observed games defaults to .500 blend
+- **WHEN** a player has zero observed games at a position
+- **THEN** their ability at that position is (0.5 + experience score) / 2, not pure experience
+
+#### Scenario: Sparse old data gets proportional backfill
+- **WHEN** a player has observed games below the shrinkage prior at a position
+- **THEN** the missing portion is filled with .500 performance rather than experience, producing a lower ability than the pure-experience fallback would
+
+#### Scenario: Established players are unchanged
+- **WHEN** a player has weighted observed games at or above the shrinkage prior at a position
+- **THEN** their ability is computed by the existing shrinkage formula with no .500 backfill term
+
+#### Scenario: Novice rates at floor
+- **WHEN** a player has zero years of stated experience and zero observed games at a position
+- **THEN** their ability at that position is 0.25
+
 ### Requirement: Exclude locked teams from the balance score
 The system SHALL compute team balance from the newly generated teams only, comparing their strengths against each other, and SHALL NOT include locked teams in the balanced set.
 
@@ -146,3 +169,48 @@ The system SHALL evaluate play-with adherence and report unsatisfied play-with p
 #### Scenario: Locked pairings do not penalise generated teams
 - **WHEN** locked teams contain satisfied play-with pairings and new teams are generated
 - **THEN** the play-with adherence score of the generated teams reflects only the unassigned pairings
+
+### Requirement: Provide per-team criterion breakdown
+The system SHALL return, for each team in a roster, the individual scores that team contributed to each per-team criterion: plays-with adherence, player rules compliance, and team continuity. These per-team values SHALL be the same ones used to compute the aggregate criterion scores via averaging.
+
+#### Scenario: Per-team plays-with scores available
+- **WHEN** a roster is evaluated
+- **THEN** the result includes a per-team breakdown showing each team's plays-with adherence score
+
+#### Scenario: Per-team player rules scores available
+- **WHEN** a roster is evaluated
+- **THEN** the result includes a per-team breakdown showing each team's player rules compliance score
+
+#### Scenario: Per-team continuity scores available
+- **WHEN** a roster is evaluated
+- **THEN** the result includes a per-team breakdown showing each team's continuity score for each lookback window
+
+### Requirement: Provide per-player ability and contribution data
+The system SHALL return, for each assigned player in a roster, their stated years of experience, their computed ability rating at their assigned position, and their calculated contribution to the team's positional strength. This data SHALL come from the precomputed AbilityTable without additional database queries.
+
+#### Scenario: Per-player ability available
+- **WHEN** a roster is evaluated
+- **THEN** each assigned player's data includes their ability at the position they occupy
+
+#### Scenario: Per-player contribution available
+- **WHEN** a roster is evaluated
+- **THEN** each assigned player's data includes their contribution (ability × position influence) at their assigned position
+
+#### Scenario: Experience shown for context
+- **WHEN** a roster is evaluated
+- **THEN** each assigned player's data includes their stated years of curling experience
+
+### Requirement: Provide structured violation data with affected players
+The system SHALL return structured data for each constraint violation that names the affected players by their identifiers and the team indices where the violation occurs, alongside the existing human-readable violation strings. For split play-with pairs, the system SHALL identify both players and which teams they landed on.
+
+#### Scenario: Split play-with pair names both players
+- **WHEN** a play-with pair is split across two different generated teams
+- **THEN** the structured violation data includes the player identifiers for both members and the team indices where each was placed
+
+#### Scenario: Never-together violation names both players
+- **WHEN** two players with a never-together rule are placed on the same team
+- **THEN** the structured violation data includes both player identifiers and the team index
+
+#### Scenario: Must-be-together violation names the isolated player
+- **WHEN** one member of a must-be-together pair is on a team without the other
+- **THEN** the structured violation data includes the isolated player's identifier and the team index

@@ -25,11 +25,14 @@ POSITIONS = ('Skip', 'Vice', 'Second', 'Lead')
 # coarse: a player's contribution is ability * influence, so a promotion from
 # Vice to Skip only pays off when the player holds up at Skip.
 POSITION_INFLUENCE = {
-    'Skip': 1.00,
-    'Vice': 0.85,
-    'Second': 0.75,
-    'Lead': 0.70,
+    'Skip': 0.38,
+    'Vice': 0.27,
+    'Second': 0.20,
+    'Lead': 0.15,
 }
+
+# Sum of Skip+Vice+Second weights for 3-player team rescaling.
+THREE_PLAYER_INFLUENCE_SUM = 0.38 + 0.27 + 0.20  # 0.85
 
 # Model field name for each position. Positions are capitalised throughout the
 # generation code (they mirror the v1 roster dict keys), while the TeamResult
@@ -145,14 +148,16 @@ def position_ability(years_curled, observations, prior_games=0.0):
     Ability at one position, blending observed results with stated experience.
 
     Observations are (weight, win_rate, games) triples, where weight comes from
-    time decay. Rather than falling back to experience only when no results
-    exist -- which would treat a single 8-0 season as fully reliable -- the
-    observed rate is shrunk toward the experience expectation in proportion to
-    how little history there is.
+    time decay. The observed rate is shrunk toward the experience expectation in
+    proportion to how little history there is.  When observed games fall below
+    the shrinkage prior, the gap is filled with .500 performance rather than
+    pure experience, so unproven players are rated conservatively.
 
-        ability = (n * win_rate + m * experience_score) / (n + m)
+        ability = (n * win_rate + missing * 0.5 + m * experience_score)
+                / (n + missing + m)
 
-    where n is the weighted game count and m the prior strength in games.
+    where n is the weighted game count, m the prior strength in games, and
+    missing = max(0, m - n) fills the gap with league-average performance.
 
     Args:
         years_curled (int): stated experience for this player.
@@ -167,13 +172,13 @@ def position_ability(years_curled, observations, prior_games=0.0):
     weighted_games = sum(weight * games for weight, _, games in observations)
     weighted_wins = sum(weight * win_rate * games for weight, win_rate, games in observations)
 
-    if weighted_games <= 0:
-        return expectation
+    # When observed data falls short of the prior, fill the gap with .500
+    # performance.  Established players (weighted_games >= prior_games) are
+    # unchanged — missing = 0 and the formula collapses to the original.
+    missing = max(0.0, prior_games - weighted_games)
 
-    # A zero prior means "trust the observations fully", which is the correct
-    # reading of m=0 -- not "ignore the observations".
-    numerator = weighted_wins + prior_games * expectation
-    denominator = weighted_games + prior_games
+    numerator = weighted_wins + missing * 0.5 + prior_games * expectation
+    denominator = weighted_games + missing + prior_games
     if denominator <= 0:
         return expectation
     return min(1.0, max(0.0, numerator / denominator))
@@ -188,6 +193,19 @@ def contribution(ability, position):
     balance gain elsewhere outweighs the drop.
     """
     return ability * position_influence(position)
+
+
+def contribution_rescaled(ability, position):
+    """
+    Contribution with weights rescaled for a 3-player team (no Lead).
+
+    Divides the standard influence by THREE_PLAYER_INFLUENCE_SUM so the
+    Skip, Vice, and Second weights sum to 1.0.  Lead gets 0.0 (not used).
+    """
+    influence = position_influence(position)
+    if position == 'Lead':
+        return 0.0
+    return ability * influence / THREE_PLAYER_INFLUENCE_SUM
 
 
 def team_strength(team, ability_table):

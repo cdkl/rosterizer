@@ -1,18 +1,107 @@
-<table class="table table-sm table-striped mb-0">
-    <thead>
-        <tr>
-            <th>Team</th>
-            {% for position in positions %}<th>{{ position }}</th>{% endfor %}
-        </tr>
-    </thead>
-    <tbody>
-        {% for team in teams %}
-        <tr>
-            <td>{{ forloop.counter }}</td>
-            {% for player in team %}
-            <td>{% if player %}{{ player.full_name }}{% else %}&mdash;{% endif %}</td>
+{% load rosterizer_extras %}
+<div class="team-detail">
+    <table class="table table-sm table-striped mb-2">
+        <thead>
+            <tr>
+                <th>Team</th>
+                {% for position in positions %}<th>{{ position }}</th>{% endfor %}
+                <th class="text-end">Strength</th>
+                <th class="text-end">Plays‑With</th>
+                <th class="text-end">Rules</th>
+                <th class="text-end">Continuity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ts in team_summaries %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                {% for cell in ts.player_cells %}
+                <td>
+                    {{ cell.name }}
+                    {% if cell.contribution is not None %}
+                    <span class="badge bg-light text-dark ms-1">{{ cell.contribution|floatformat:2 }}</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
+                <td class="text-end">
+                    {% if ts.strength is not None %}
+                    <span class="badge bg-light text-dark">{{ ts.strength|floatformat:2 }}</span>
+                    {% else %}&mdash;{% endif %}
+                </td>
+                <td class="text-end">
+                    {% if ts.plays_with is not None %}
+                    <span class="badge {{ ts.plays_with|score_class }}">{{ ts.plays_with|floatformat:2 }}</span>
+                    {% else %}&mdash;{% endif %}
+                </td>
+                <td class="text-end">
+                    {% if ts.player_rules is not None %}
+                    <span class="badge {{ ts.player_rules|score_class }}">{{ ts.player_rules|floatformat:2 }}</span>
+                    {% else %}&mdash;{% endif %}
+                </td>
+                <td class="text-end">
+                    {% if ts.continuity is not None %}
+                    <span class="badge {{ ts.continuity|score_class }}">{{ ts.continuity|floatformat:2 }}</span>
+                    {% else %}&mdash;{% endif %}
+                </td>
+            </tr>
+            {% if ts.violations %}
+            <tr>
+                <td colspan="{{ positions|length|add:5 }}" class="ps-4">
+                    {% for v in ts.violations %}
+                    <small class="text-warning-emphasis d-block">⚠ {{ v }}</small>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endif %}
+            {% if ts.continuity_notes %}
+            <tr>
+                <td colspan="{{ positions|length|add:5 }}" class="ps-4">
+                    {% for note in ts.continuity_notes %}
+                    <small class="text-secondary d-block">⚠ {{ note }}</small>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endif %}
             {% endfor %}
-        </tr>
+        </tbody>
+    </table>
+
+    {% if team_player_stats %}
+    <details class="mb-2">
+        <summary class="text-muted small">Player experience &amp; ability</summary>
+        {% for tps in team_player_stats %}
+        <p class="mb-1 mt-2 small fw-bold ps-2">Team {{ forloop.counter }}</p>
+        <table class="table table-sm table-borderless small mb-1">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Position</th>
+                    <th>Years&nbsp;Curled</th>
+                    <th>Ability</th>
+                    <th>Contribution</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in tps %}
+                <tr>
+                    <td>{{ p.name }}</td>
+                    <td>{{ p.position }}</td>
+                    <td>{{ p.years_curled }}</td>
+                    <td>{{ p.ability|floatformat:2 }}</td>
+                    <td>{{ p.contribution|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% endfor %}
-    </tbody>
-</table>
+    </details>
+    {% endif %}
+
+    {% if violations %}
+    <div class="alert alert-warning py-1 px-3 mb-0 small">
+        {% for v in violations %}
+        <div>{{ v }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

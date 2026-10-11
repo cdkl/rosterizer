@@ -3,7 +3,7 @@ from django.db import connection, reset_queries
 from django.test.utils import CaptureQueriesContext
 
 from .models import Player, PlayerRule, PlayerSession, Session, Team, TeamResult
-from .position_strength import experience_score
+from .position_strength import experience_score, POSITIONS
 from .roster_evaluation_v2 import (
     CRITERION_FLOOR,
     build_context,
@@ -663,3 +663,48 @@ def test_co_location_groups_accept_arbitrary_edges():
     groups = build_co_location_groups(edges)
     assert frozenset({'a', 'b', 'c'}) in groups
     assert frozenset({'d', 'e'}) in groups
+
+
+@pytest.mark.django_db
+def test_evaluation_detail_has_structured_violations(db):
+    """evaluate_roster returns structured violation data with player IDs."""
+    session = Session.objects.create(year=2025, session_number=1)
+    players = make_players(8)
+    pss = [PlayerSession.objects.create(
+        player=p, session=session, years_curled=10,
+        preferred_position1=POSITIONS[i % 4], preferred_position2='', play_with='')
+        for i, p in enumerate(players)]
+
+    # Create a must-be-together rule so we can test structured violations.
+    PlayerRule.objects.create(rule_type='never_together',
+                              player1=players[0], player2=players[1],
+                              weight=1.0)
+
+    context = build_context(session.pk)
+    # Build a roster that deliberately violates the rule.
+    from .team_generation_v2 import _membership_to_positioned, initialise_roster
+    import random
+    roster = _membership_to_positioned(
+        initialise_roster(context, random.Random(42)), context)
+    result = evaluate_roster(roster, context)
+
+    assert 'details' in result, 'evaluate_roster must return a details key'
+    details = result['details']
+    assert 'teams' in details
+    assert 'players' in details
+    assert 'structured_violations' in details
+    assert 'continuity_detail' in details
+
+    # Per-team detail count matches roster size.
+    assert len(details['teams']) == len(roster)
+
+    # Per-player detail count matches placed players.
+    placed = sum(1 for t in roster for p in POSITIONS if t.get(p) is not None)
+    assert len(details['players']) == placed
+
+    # Each structured violation has the expected keys.
+    for sv in details['structured_violations']:
+        assert 'type' in sv
+        assert 'player_ids' in sv
+        assert 'team_indices' in sv
+        assert 'message' in sv

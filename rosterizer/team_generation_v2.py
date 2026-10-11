@@ -20,7 +20,7 @@ neither crossover repair nor mutation can split a pair.
 import itertools
 import random
 
-from .position_strength import POSITIONS
+from .position_strength import POSITIONS, contribution_rescaled
 from .roster_evaluation_v2 import (
     build_context,
     evaluate_roster,
@@ -70,10 +70,20 @@ def _second_pref_count(assignment, context):
                if context.prefers(pid, pos) == 0.5)
 
 
-def _assignment_strength(assignment, context):
-    """Sum of contributions for this assignment."""
-    return sum(context.abilities.player_contribution(pid, pos)
-               for pid, pos in assignment.items())
+def _assignment_strength(assignment, context, n_members=4):
+    """Sum of contributions for this assignment.
+
+    For 3-player teams (n_members=3) the Skip/Vice/Second weights are
+    rescaled proportionally so they sum to 1.0.
+    """
+    total = 0.0
+    for pid, pos in assignment.items():
+        ability = context.abilities.ability(pid, pos)
+        if n_members == 3:
+            total += contribution_rescaled(ability, pos)
+        else:
+            total += context.abilities.player_contribution(pid, pos)
+    return total
 
 
 def assign_positions(membership_team, context):
@@ -126,7 +136,7 @@ def assign_positions(membership_team, context):
     target = context.mean_contribution * n
 
     def _balance_dist(assignment):
-        return abs(_assignment_strength(assignment, context) - target)
+        return abs(_assignment_strength(assignment, context, n) - target)
 
     best_assignments.sort(key=_balance_dist)
     return best_assignments[0]
