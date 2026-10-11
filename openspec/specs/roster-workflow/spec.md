@@ -43,7 +43,7 @@ The system SHALL check session data for structural problems before generating an
 - **THEN** the system shows which players are involved and does not generate
 
 ### Requirement: Review candidate rosters with score breakdown
-The system SHALL present all generated candidate rosters as a list of cards sorted by composite score descending. Each card SHALL display a prominent composite score, color-coded indicators for each evaluation criterion, and an expandable section showing team assignments with per-team scoring detail. When the convenor expands a candidate card, the system SHALL show each team with its individual criterion scores, per-player ability and experience information, and any specific constraint violations affecting that team. The system SHALL use green, yellow, and red color coding on score indicators so the convenor can assess quality at a glance.
+The system SHALL present all generated candidate rosters as a list of cards sorted by composite score descending. Each card SHALL display a prominent composite score, color-coded indicators for each evaluation criterion, and an expandable section showing team assignments with per-team scoring detail. When the convenor expands a candidate card, the system SHALL show each team with its individual criterion scores, per-player ability and experience information, per-player position preference fulfillment, and any specific constraint violations affecting that team. The system SHALL use green, yellow, and red color coding on score indicators so the convenor can assess quality at a glance.
 
 #### Scenario: Rosters displayed with visual scores
 - **WHEN** 10 candidate rosters are generated
@@ -60,6 +60,10 @@ The system SHALL present all generated candidate rosters as a list of cards sort
 #### Scenario: View per-player ability information
 - **WHEN** the convenor expands a candidate roster card
 - **THEN** the system shows each player's stated years of experience, their ability rating at their assigned position, and their contribution to the team's positional strength
+
+#### Scenario: View position preference fulfillment
+- **WHEN** the convenor expands a candidate roster card
+- **THEN** the system shows which players received their first-preference position, which received their second, and which received neither
 
 #### Scenario: View constraint violations
 - **WHEN** a candidate roster contains unsatisfied play-with pairings or violated player rules

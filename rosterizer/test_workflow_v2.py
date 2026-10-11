@@ -205,6 +205,7 @@ def test_team_detail_shows_scoring_badges(client):
     assert 'Rules' in body, 'scoring header missing'
     assert 'Continuity' in body, 'scoring header missing'
     assert 'badge' in body, 'scoring badge missing'
+    assert '1st' in body or '2nd' in body, 'preference indicator missing'
 
 
 @pytest.mark.django_db
@@ -216,6 +217,8 @@ def test_team_detail_shows_per_player_stats(client):
     response = client.get(reverse('roster_team_detail', args=[session.pk, 0]))
     body = response.content.decode()
     assert 'Player experience' in body
+    assert 'Preference' in body, 'preference column missing'
+    assert 'Fulfilled' in body, 'fulfilled column missing'
     assert 'Years' in body or 'Curled' in body
     assert 'Ability' in body
     assert 'Contribution' in body

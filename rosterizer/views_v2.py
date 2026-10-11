@@ -349,11 +349,15 @@ def team_detail(request, session_id, index):
     # Index player details by (team_index, position) for fast lookup.
     pd = details.get('players', [])
     contrib_by_team_pos = {}
+    pref_by_team_pos = {}
+    pref1_by_team_pos = {}
     pi = 0
     for ti, team in enumerate(roster):
         for pos in POSITIONS:
             if team.get(pos) is not None and pi < len(pd):
                 contrib_by_team_pos[(ti, pos)] = pd[pi]['contribution']
+                pref_by_team_pos[(ti, pos)] = pd[pi]['preference_fit']
+                pref1_by_team_pos[(ti, pos)] = pd[pi].get('preferred_position1', '')
                 pi += 1
 
     for ti, team in enumerate(roster):
@@ -361,9 +365,13 @@ def team_detail(request, session_id, index):
         for pos in POSITIONS:
             player = players.get(team.get(pos))
             contrib = contrib_by_team_pos.get((ti, pos))
+            pref_fit = pref_by_team_pos.get((ti, pos))
+            pref1 = pref1_by_team_pos.get((ti, pos), '')
             player_cells.append({
                 'name': player.full_name if player else '\u2014',
                 'contribution': contrib,
+                'pref_fit': pref_fit,
+                'has_preference': bool(pref1),
             })
         ts = {
             'player_cells': player_cells,
@@ -403,6 +411,9 @@ def team_detail(request, session_id, index):
                     'years_curled': p.get('years_curled', 0),
                     'ability': p.get('ability', 0.0),
                     'contribution': p.get('contribution', 0.0),
+                    'preference_fit': p.get('preference_fit', 1.0),
+                    'preferred_position1': p.get('preferred_position1', ''),
+                    'preferred_position2': p.get('preferred_position2', ''),
                 })
                 pi += 1
         if team_stats:

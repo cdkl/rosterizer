@@ -26,3 +26,17 @@ def score_class(value):
     if number >= 0.7:
         return 'bg-warning'
     return 'bg-danger'
+
+
+@register.filter
+def pref_label(value):
+    """Preference fit (1.0, 0.5, 0.0) to a short display label."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return '\u2014'
+    if number >= 0.99:
+        return '1st'
+    if number >= 0.49:
+        return '2nd'
+    return '\u2014'

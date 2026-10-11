@@ -18,6 +18,17 @@
                 {% for cell in ts.player_cells %}
                 <td>
                     {{ cell.name }}
+                    {% if cell.pref_fit is not None %}
+                    {% if not cell.has_preference %}
+                    <span class="badge bg-warning text-dark ms-1">any</span>
+                    {% elif cell.pref_fit >= 0.99 %}
+                    <span class="badge bg-success ms-1">1st</span>
+                    {% elif cell.pref_fit >= 0.49 %}
+                    <span class="badge bg-warning ms-1">2nd</span>
+                    {% else %}
+                    <span class="badge bg-danger ms-1">&mdash;</span>
+                    {% endif %}
+                    {% endif %}
                     {% if cell.contribution is not None %}
                     <span class="badge bg-light text-dark ms-1">{{ cell.contribution|floatformat:2 }}</span>
                     {% endif %}
@@ -76,6 +87,8 @@
                 <tr>
                     <th>Player</th>
                     <th>Position</th>
+                    <th>Preference</th>
+                    <th>Fulfilled</th>
                     <th>Years&nbsp;Curled</th>
                     <th>Ability</th>
                     <th>Contribution</th>
@@ -86,6 +99,8 @@
                 <tr>
                     <td>{{ p.name }}</td>
                     <td>{{ p.position }}</td>
+                    <td>{% if p.preferred_position1 %}{{ p.preferred_position1 }}{% if p.preferred_position2 %} / {{ p.preferred_position2 }}{% endif %}{% else %}&mdash;{% endif %}</td>
+                    <td><span class="badge {% if p.preference_fit >= 0.99 %}bg-success{% elif p.preference_fit >= 0.49 %}bg-warning{% else %}bg-danger{% endif %}">{{ p.preference_fit|pref_label }}</span></td>
                     <td>{{ p.years_curled }}</td>
                     <td>{{ p.ability|floatformat:2 }}</td>
                     <td>{{ p.contribution|floatformat:2 }}</td>

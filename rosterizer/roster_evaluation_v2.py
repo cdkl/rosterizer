@@ -109,6 +109,10 @@ class LeagueContext:
         if not prefs:
             return 1.0
         first, second = prefs
+        # A player with empty-string preferences (e.g. from CSV import) is
+        # treated the same as no preference — unconstrained, score 1.0.
+        if not first and not second:
+            return 1.0
         if first == position:
             return 1.0
         if second == position:
@@ -709,6 +713,9 @@ def evaluate_roster(roster, context, weights=None):
                 'ability': context.abilities.ability(player_id, position),
                 'contribution': context.abilities.player_contribution(
                     player_id, position),
+                'preference_fit': context.prefers(player_id, position),
+                'preferred_position1': ps.preferred_position1 if ps else '',
+                'preferred_position2': ps.preferred_position2 if ps else '',
             })
 
     # Continuity detail: per-team, per-lookback, which prior teammates overlap.
