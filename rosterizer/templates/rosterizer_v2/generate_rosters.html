@@ -54,6 +54,54 @@
 </div>
 {% endif %}
 
+<h5>Convenor Play-With Pairs</h5>
+<p class="text-body-secondary mb-2">
+    These pairs are treated the same as player-declared play-with preferences.
+    Overlapping pairs (e.g. A+B and B+C) place all three players together.
+</p>
+
+{% if convenor_pairs %}
+<ul class="list-group mb-3">
+    {% for pair_id, name1, name2 in convenor_pairs %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ name1 }} + {{ name2 }}
+        <form method="post" action="{% url 'delete_convenor_pair' session.id pair_id %}"
+              style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+        </form>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-body-secondary mb-2">No convenor-declared pairs yet.</p>
+{% endif %}
+
+<form method="post" action="{% url 'add_convenor_pair' session.id %}" class="mb-3">
+    {% csrf_token %}
+    <div class="row g-2 align-items-end">
+        <div class="col-auto">
+            <select class="form-select" name="player1" required>
+                <option value="">-- Player --</option>
+                {% for ps in session.playersession_set.all|dictsort:"player.full_name" %}
+                <option value="{{ ps.player.id }}">{{ ps.player.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <select class="form-select" name="player2" required>
+                <option value="">-- Player --</option>
+                {% for ps in session.playersession_set.all|dictsort:"player.full_name" %}
+                <option value="{{ ps.player.id }}">{{ ps.player.full_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-secondary">Add Pair</button>
+        </div>
+    </div>
+</form>
+
 {% if unassigned_count == 0 %}
 <div class="alert alert-info" role="alert">
     <h5 class="alert-heading">Nothing to generate</h5>

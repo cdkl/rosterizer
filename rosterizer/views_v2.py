@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import PlayerSession, Session, Team, TeamResult
+from .models import ConvenorPlayWith, PlayerSession, Session, Team, TeamResult
 from .position_strength import POSITIONS
 from .roster_evaluation_v2 import evaluate_roster
 from .team_generation_v2 import ValidationProblem, generate_rosters_v2, validate_session
@@ -164,6 +164,13 @@ def lock_summary(session):
     }
 
 
+def convenor_pairs_by_session(session_id):
+    """List of (pair_id, player1_name, player2_name) for a session."""
+    pairs = ConvenorPlayWith.objects.filter(session_id=session_id).select_related(
+        'player1', 'player2')
+    return [(p.pk, p.player1.full_name, p.player2.full_name) for p in pairs]
+
+
 def generate_rosters_form(request, session_id):
     """Configuration form for generating candidate rosters."""
     session = get_object_or_404(Session, pk=session_id)
@@ -174,6 +181,7 @@ def generate_rosters_form(request, session_id):
         'coverage': results_coverage(session),
         'default_candidates': DEFAULT_CANDIDATES,
         'max_candidates': MAX_CANDIDATES,
+        'convenor_pairs': convenor_pairs_by_session(session.pk),
         **lock_summary(session),
     })
 
@@ -233,6 +241,56 @@ def generate_rosters(request, session_id):
         'shortfall': result['shortfall'],
         'error': None,
     })
+
+
+def add_convenor_pair(request, session_id):
+    """Add a convenor play-with pair for this session."""
+    session = get_object_or_404(Session, pk=session_id)
+    if request.method != 'POST':
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    player1_id = request.POST.get('player1')
+    player2_id = request.POST.get('player2')
+    if not player1_id or not player2_id:
+        messages.error(request, 'Select both players.')
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    try:
+        p1_id = int(player1_id)
+        p2_id = int(player2_id)
+    except (TypeError, ValueError):
+        messages.error(request, 'Invalid player selection.')
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    if p1_id == p2_id:
+        messages.error(request, 'A player cannot be paired with themselves.')
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    # Verify both players are registered in this session.
+    registered = set(
+        PlayerSession.objects.filter(session=session).values_list('player_id', flat=True))
+    if p1_id not in registered or p2_id not in registered:
+        messages.error(request, 'Both players must be registered in this session.')
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    # Deduplicate: treat (A,B) and (B,A) as the same pair.
+    a, b = min(p1_id, p2_id), max(p1_id, p2_id)
+    if ConvenorPlayWith.objects.filter(session=session, player1_id=a, player2_id=b).exists():
+        messages.warning(request, 'That pair already exists.')
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    ConvenorPlayWith.objects.create(session=session, player1_id=a, player2_id=b)
+    return redirect('generate_rosters_form', session_id=session.pk)
+
+
+def delete_convenor_pair(request, session_id, pair_id):
+    """Remove a convenor play-with pair."""
+    session = get_object_or_404(Session, pk=session_id)
+    if request.method != 'POST':
+        return redirect('generate_rosters_form', session_id=session.pk)
+
+    ConvenorPlayWith.objects.filter(session=session, pk=pair_id).delete()
+    return redirect('generate_rosters_form', session_id=session.pk)
 
 
 def roster_review(request, session_id):

@@ -59,7 +59,7 @@ def test_query_count_flat_as_locked_teams_grow():
 @pytest.mark.django_db
 def test_build_context_uses_fixed_query_count(django_assert_num_queries):
     session, pss = build_locked_league(8, locked_teams=2)
-    with django_assert_num_queries(6):
+    with django_assert_num_queries(7):
         build_context(session.pk)
 
 

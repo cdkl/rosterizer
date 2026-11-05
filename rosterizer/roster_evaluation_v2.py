@@ -10,7 +10,7 @@ inside per-team loops is not viable here -- see design Decision 2.
 from dataclasses import dataclass, field
 from statistics import fmean
 
-from .models import PlayerRule, PlayerSession, Team, TeamResult
+from .models import ConvenorPlayWith, PlayerRule, PlayerSession, Team, TeamResult
 from .position_strength import POSITIONS, build_ability_table, ordered_sessions
 
 # Each criterion is clamped to this floor before averaging. Without it, a
@@ -198,8 +198,9 @@ def co_location_edges(play_with_pairs, must_together_pairs):
     All edges that force players onto the same team.
 
     Taking them as an input list rather than reading the models directly is what
-    lets a future play-with modality contribute edges without changing grouping,
-    validation, or the genetic operators.
+    lets convenor-declared pairs contribute edges without changing grouping,
+    validation, or the genetic operators.  Convenor pairs are merged into
+    ``play_with_pairs`` before this call, alongside player-declared pairs.
     """
     return [tuple(pair) for pair in play_with_pairs] + \
            [tuple(pair) for pair in must_together_pairs]
@@ -308,6 +309,19 @@ def build_context(session_id):
     play_with_pairs, problems = resolve_play_with_pairs(player_sessions)
     if problems:
         raise ValueError('; '.join(problems))
+
+    # Merge convenor-declared pairs into play_with_pairs so they
+    # participate in co-location grouping, scoring, violation
+    # reporting and continuity exemption identically to player-declared
+    # paires.  Overlapping convenor pairs (e.g. (A,B) and (B,C))
+    # combine via union-find into larger groups.
+    convenor_pairs = tuple(
+        frozenset((p1_id, p2_id))
+        for p1_id, p2_id in ConvenorPlayWith.objects
+            .filter(session_id=session_id)
+            .values_list('player1_id', 'player2_id'))
+    if convenor_pairs:
+        play_with_pairs = play_with_pairs + convenor_pairs
 
     must_together = frozenset(
         frozenset((r.player1_id, r.player2_id))

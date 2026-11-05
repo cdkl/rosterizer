@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from .models import Player, PlayerRule, PlayerSession, Session, Team, TeamResult
+from .models import ConvenorPlayWith, Player, PlayerRule, PlayerSession, Session, Team, TeamResult
 from .position_strength import POSITIONS
 from .roster_evaluation_v2 import evaluate_roster
 from .team_generation_v2 import (
@@ -103,11 +103,48 @@ def test_validate_blocks_oversized_co_location_group():
 @pytest.mark.django_db
 def test_four_player_group_is_allowed():
     session, pss = build_league(8)
-    for a, b in [(0, 1), (1, 2), (2, 3)]:
+    for a, b in [(0, 1), (1,2), (2,3)]:
         PlayerRule.objects.create(rule_type='must_be_together',
                                   player1=pss[a].player, player2=pss[b].player)
     context = validate_session(session.pk)
     assert max(len(g) for g in context.co_location_groups) == TEAM_SIZE
+
+
+@pytest.mark.django_db
+def test_validate_blocks_oversized_with_convenor_pairs():
+    """Convenor pairs that chain into a 5-player group are rejected."""
+    session, pss = build_league(8)
+    # Create chains: (0,1), (1,2), (2,3), (3,4) via convenor pairs
+    ConvenorPlayWith.objects.create(session=session, player1=pss[0].player, player2=pss[1].player)
+    ConvenorPlayWith.objects.create(session=session, player1=pss[1].player, player2=pss[2].player)
+    ConvenorPlayWith.objects.create(session=session, player1=pss[2].player, player2=pss[3].player)
+    ConvenorPlayWith.objects.create(session=session, player1=pss[3].player, player2=pss[4].player)
+    with pytest.raises(ValidationProblem) as exc:
+        validate_session(session.pk)
+    assert 'only 4' in str(exc.value)
+
+
+@pytest.mark.django_db
+def test_validate_blocks_convenor_pair_spanning_locked_team():
+    """A convenor pair with one locked member is unsatisfiable."""
+    session = Session.objects.create(year=2025, session_number=1)
+    pss = []
+    for i in range(8):
+        player = Player.objects.create(first_name=f'P{i}', last_name='X')
+        pss.append(PlayerSession.objects.create(
+            player=player, session=session, years_curled=10,
+            preferred_position1=POSITIONS[i % 4], preferred_position2='', play_with=''))
+    # Lock pss[0]-pss[3] on a team
+    Team.objects.create(
+        session=session, team_number=1,
+        skip=pss[0].player, vice=pss[1].player,
+        second=pss[2].player, lead=pss[3].player)
+    # pss[0] is locked, pss[4] is unassigned
+    ConvenorPlayWith.objects.create(session=session, player1=pss[0].player, player2=pss[4].player)
+    with pytest.raises(ValidationProblem) as exc:
+        validate_session(session.pk)
+    assert 'must share a team' in str(exc.value)
+    assert 'already on an existing team' in str(exc.value)
 
 
 # --------------------------------------------------------------------------

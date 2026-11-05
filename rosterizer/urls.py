@@ -41,6 +41,10 @@ urlpatterns = [
          views_v2.select_roster, name='select_roster_v2'),
     path('v2/sessions/<int:session_id>/candidate/<int:index>/',
          views_v2.team_detail, name='roster_team_detail'),
+    path('v2/sessions/<int:session_id>/convenor-pair/add/',
+         views_v2.add_convenor_pair, name='add_convenor_pair'),
+    path('v2/sessions/<int:session_id>/convenor-pair/<int:pair_id>/delete/',
+         views_v2.delete_convenor_pair, name='delete_convenor_pair'),
 
     path("favicon.ico", views.favicon),
 ]

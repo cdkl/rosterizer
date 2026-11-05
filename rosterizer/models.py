@@ -169,3 +169,31 @@ class TeamResult(models.Model):
 
     def get_players(self):
         return [p for p in (self.skip, self.vice, self.second, self.lead) if p is not None]
+
+
+class ConvenorPlayWith(models.Model):
+    """
+    Session-scoped play-with pair declared by the convenor.
+
+    These pairs are fed into the co-location pipeline alongside
+    player-declared play-with pairs and must-be-together rules, so the
+    genetic algorithm treats them identically.  Overlapping pairs (e.g.
+    (A,B) and (B,C)) merge into larger co-location groups via union-find,
+    enabling trios without a separate group model.
+    """
+
+    session = models.ForeignKey(Session, on_delete=models.CASCADE,
+                                related_name='convenor_pairs')
+    player1 = models.ForeignKey(Player, on_delete=models.CASCADE,
+                                related_name='convenor_pw_1')
+    player2 = models.ForeignKey(Player, on_delete=models.CASCADE,
+                                related_name='convenor_pw_2')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['session', 'player1', 'player2']]
+        ordering = ['session', 'pk']
+
+    def __str__(self):
+        return (f'{self.session}: {self.player1.full_name} + '
+                f'{self.player2.full_name}')

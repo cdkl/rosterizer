@@ -8,7 +8,7 @@ recorded results actually influence the outcome.
 
 import pytest
 
-from .models import Player, PlayerSession, Session, Team, TeamResult
+from .models import ConvenorPlayWith, Player, PlayerSession, Session, Team, TeamResult
 from .position_strength import POSITIONS, build_ability_table
 from .roster_evaluation_v2 import build_context, evaluate_roster
 from .team_generation_v2 import generate_rosters_v2
@@ -270,3 +270,56 @@ def test_no_results_falls_back_to_experience_cleanly():
     assert len(out['candidates']) == 3
     for candidate in out['candidates']:
         assert candidate['criteria']['completeness'] == 1.0
+
+@pytest.mark.django_db
+def test_convenor_pair_keeps_players_together():
+    """A convenor-declared pair must share a team in every candidate."""
+    session = Session.objects.create(year=2025, session_number=1)
+    pss = []
+    for i in range(8):
+        p = Player.objects.create(first_name=f'C{i}', last_name='X')
+        pss.append(PlayerSession.objects.create(
+            player=p, session=session, years_curled=10,
+            preferred_position1=POSITIONS[i % 4], preferred_position2='', play_with=''))
+    ConvenorPlayWith.objects.create(
+        session=session, player1=pss[0].player, player2=pss[3].player)
+
+    out = generate_rosters_v2(session.pk, num_candidates=3, seed=1)
+    assert len(out['candidates']) == 3
+
+    for candidate in out['candidates']:
+        pair_found = False
+        for team in candidate['roster']:
+            ps_ids = [v for v in team.values() if v is not None]
+            if pss[0].pk in ps_ids and pss[3].pk in ps_ids:
+                pair_found = True
+        assert pair_found, 'convenor pair must share a team'
+
+
+@pytest.mark.django_db
+def test_overlapping_convenor_pairs_form_trio():
+    """Two overlapping convenor pairs (A,B) and (B,C) place all three together."""
+    session = Session.objects.create(year=2025, session_number=1)
+    pss = []
+    for i in range(8):
+        p = Player.objects.create(first_name=f'T{i}', last_name='X')
+        pss.append(PlayerSession.objects.create(
+            player=p, session=session, years_curled=10,
+            preferred_position1=POSITIONS[i % 4], preferred_position2='', play_with=''))
+    # Trio: T0+T1 and T1+T2 -> group {T0, T1, T2}
+    ConvenorPlayWith.objects.create(
+        session=session, player1=pss[0].player, player2=pss[1].player)
+    ConvenorPlayWith.objects.create(
+        session=session, player1=pss[1].player, player2=pss[2].player)
+
+    out = generate_rosters_v2(session.pk, num_candidates=3, seed=42)
+    assert len(out['candidates']) == 3
+
+    for candidate in out['candidates']:
+        trio_on_same_team = False
+        for team in candidate['roster']:
+            ps_ids = [v for v in team.values() if v is not None]
+            trio = {pss[0].pk, pss[1].pk, pss[2].pk}
+            if trio <= set(ps_ids):
+                trio_on_same_team = True
+        assert trio_on_same_team, 'trio must share a team'

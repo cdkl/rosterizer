@@ -2,13 +2,14 @@ import pytest
 from django.db import connection, reset_queries
 from django.test.utils import CaptureQueriesContext
 
-from .models import Player, PlayerRule, PlayerSession, Session, Team, TeamResult
+from .models import ConvenorPlayWith, Player, PlayerRule, PlayerSession, Session, Team, TeamResult
 from .position_strength import experience_score, POSITIONS
 from .roster_evaluation_v2 import (
     CRITERION_FLOOR,
     build_context,
     build_co_location_groups,
     co_location_edges,
+    collect_violations,
     evaluate_completeness,
     evaluate_player_rules,
     evaluate_plays_with_adherence,
@@ -378,6 +379,58 @@ def test_must_together_satisfied_scores_one(db):
     ctx = build_context(session.pk)
     roster = roster_from([(pss[0], pss[1], pss[2], pss[3])])
     assert evaluate_player_rules(roster, ctx) == [1.0]
+
+
+@pytest.mark.django_db
+def test_convenor_pair_together_scores_one_in_plays_with(db):
+    """A convenor pair placed together scores 1.0 per team."""
+    session = Session.objects.create(year=2025, session_number=1)
+    players = make_players(4)
+    pss = [PlayerSession.objects.create(
+        player=p, session=session, years_curled=10,
+        preferred_position1='Skip', preferred_position2='', play_with='')
+        for p in players]
+    ConvenorPlayWith.objects.create(
+        session=session, player1=players[0], player2=players[1])
+    ctx = build_context(session.pk)
+    together = roster_from([(pss[0], pss[1], pss[2], pss[3])])
+    assert evaluate_plays_with_adherence(together, ctx) == [1.0]
+
+
+@pytest.mark.django_db
+def test_convenor_pair_split_scores_half_in_plays_with(db):
+    """A split convenor pair is penalised identically to a player-declared pair."""
+    session = Session.objects.create(year=2025, session_number=1)
+    players = make_players(8)
+    pss = [PlayerSession.objects.create(
+        player=p, session=session, years_curled=10,
+        preferred_position1='Skip', preferred_position2='', play_with='')
+        for p in players]
+    ConvenorPlayWith.objects.create(
+        session=session, player1=players[0], player2=players[5])
+    ctx = build_context(session.pk)
+    split = roster_from([(pss[0], pss[1], pss[2], pss[3]),
+                         (pss[4], pss[5], pss[6], pss[7])])
+    assert evaluate_plays_with_adherence(split, ctx) == [0.5, 0.5]
+
+
+@pytest.mark.django_db
+def test_convenor_pair_violation_reported(db):
+    """A split convenor pair appears in collect_violations."""
+    session = Session.objects.create(year=2025, session_number=1)
+    players = make_players(8)
+    pss = [PlayerSession.objects.create(
+        player=p, session=session, years_curled=10,
+        preferred_position1='Skip', preferred_position2='', play_with='')
+        for p in players]
+    ConvenorPlayWith.objects.create(
+        session=session, player1=players[0], player2=players[5])
+    ctx = build_context(session.pk)
+    split = roster_from([(pss[0], pss[1], pss[2], pss[3]),
+                         (pss[4], pss[5], pss[6], pss[7])])
+    violations, structured = collect_violations(split, ctx)
+    assert any('split' in v for v in violations)
+    assert any(sv['type'] == 'split_pair' for sv in structured)
 
 
 # --------------------------------------------------------------------------

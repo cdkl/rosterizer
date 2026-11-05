@@ -200,3 +200,90 @@ python manage.py generate_rosters_v2 --session-id 1 --candidates 5 --seed 42
 The command exits non-zero and explains the problem if the session data cannot
 be used (for example a play-with reference to someone not registered, or a set
 of players forced together that exceeds team size).
+
+### Player substitution
+
+When a registered player cannot play and a substitute is needed after teams are
+already set, use the `substitute_player` command. It swaps the substitute into
+every team position held by the outgoing player, updates the session
+registration, and — if results are committed — updates the historical record
+too. No need to clear teams and regenerate.
+
+#### Workflow
+
+The command runs as a dry-run first so you can confirm what will change before
+anything is written. Always run without `--apply` first:
+
+```bash
+# Step 1 — preview
+python manage.py substitute_player \
+  --session-id 3 \
+  --remove-player 42 \
+  --add-player 99
+```
+
+The dry-run prints the session details, lists every PlayerSession, Team, and
+TeamResult row that will be created or updated, and reminds you to add
+`--apply`. If it looks correct, repeat with the flag:
+
+```bash
+# Step 2 — commit
+python manage.py substitute_player \
+  --session-id 3 \
+  --remove-player 42 \
+  --add-player 99 \
+  --apply
+```
+
+Re-running after a successful substitution is safe — the command detects that
+the swap is already done and exits cleanly.
+
+#### Finding the IDs
+
+Before you run the command, look up the session and player IDs:
+
+```bash
+# List every session by ID
+python manage.py shell -c "
+from rosterizer.models import Session
+for s in Session.objects.all():
+    print(f'{s.id}: {s}')
+"
+
+# Find a player by name fragment
+python manage.py shell -c "
+from rosterizer.models import Player
+for p in Player.objects.filter(last_name__icontains='smith'):
+    print(f'{p.id}: {p.full_name}')
+"
+
+# See every player registered in session 3
+python manage.py shell -c "
+from rosterizer.models import PlayerSession
+for ps in PlayerSession.objects.filter(session_id=3).select_related('player'):
+    print(f'  {ps.player.id}: {ps.player.full_name}')
+"
+```
+
+#### Arguments
+
+| Argument | Required | Description |
+|---|---|---|
+| `--session-id` | yes | Session to perform the substitution in |
+| `--remove-player` | yes | Player ID to swap out |
+| `--add-player` | yes | Player ID to swap in (must already exist in the database) |
+| `--apply` | no | Commit the changes. Omit to preview only |
+
+The substitute player does not need to be registered in the session beforehand —
+the command creates the registration automatically. If they are already
+registered, the existing registration is left alone.
+
+The player being removed keeps their session registration. If you want to
+deregister them, do it separately through the Django shell.
+
+#### Production (Docker)
+
+```bash
+docker exec -it <container> python manage.py substitute_player \
+  --session-id 3 --remove-player 42 --add-player 99 --apply
+```
